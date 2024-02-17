@@ -40,7 +40,7 @@ git clone --recurse-submodules https://github.com/riscv/riscv-pqc.git
 To start the build process, run:
 
 ```shell
-cd ./docs-spec-template && make build
+cd ./riscv-pqc && make build
 ```
 
 The link:Makefile[] script will check the availability of Docker on your system:

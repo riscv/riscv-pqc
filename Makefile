@@ -20,7 +20,7 @@ riscvintl/riscv-docs-base-container-image:latest
 
 SRC_DIR := src
 BUILD_DIR := build
-HEADER_SOURCE := $(SRC_DIR)/spec-sample.adoc
+HEADER_SOURCE := $(SRC_DIR)/riscv-pqc.adoc
 XTRA_ADOC_OPTS :=
 ASCIIDOCTOR_PDF := asciidoctor-pdf
 ASCIIDOCTOR_HTML := asciidoctor
@@ -58,6 +58,9 @@ build-container:
 	$(DOCKER_RUN) /bin/sh -c "$(ASCIIDOCTOR_PDF) $(OPTIONS) $(REQUIRES) $(HEADER_SOURCE)"
 	$(DOCKER_RUN) /bin/sh -c "$(ASCIIDOCTOR_HTML) $(OPTIONS) $(REQUIRES) $(HEADER_SOURCE)"
 	@echo "Build completed successfully inside Docker container."
+	$(DOCKER_RUN) /bin/sh -c "chown -R `id -u`:`id -g` build"
+
+#	that chown method is a hack (2024-02-17 mjos)
 
 build-no-container:
 	@echo "Starting build..."

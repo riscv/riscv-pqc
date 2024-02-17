@@ -1,10 +1,10 @@
-= RISC-V Example Specification Document (Zexmpl)
-Authors: Author 1, Author 2
+= RISC-V Post-Quantum Cryptography Extension
+Authors: Markku-Juhani O. Saarinen
 :docgroup: RISC-V Task Group
 :description: RISC-V Example Specification Document (Zexmpl)
 :company: RISC-V.org
-:revdate: 1/2023
-:revnumber: 1.0
+:revdate: 2/2024
+:revnumber: 0.0
 :revremark: This document is under development. Expect potential changes. Visit http://riscv.org/spec-state for further details.
 :revinfo:
 :url-riscv: http://riscv.org
@@ -21,9 +21,9 @@ Authors: Author 1, Author 2
 //:WaveDromEditorApp: app/wavedrom-editor.app
 :imagesoutdir: ../build/images
 :srcdir: src
-:bibtex-file: {srcdir}/example.bib
+:bibtex-file: {srcdir}/riscv-pqc.bib
 :bibtex-order: alphabetical
-:bibtex-style: apa
+:bibtex-style: ieee
 :icons: font
 :lang: en
 :listing-caption: Listing
@@ -55,14 +55,14 @@ Attribution 4.0 International License (CC-BY 4.0). The full
 license text is available at
 https://creativecommons.org/licenses/by/4.0/.
 
-Copyright 2023 by RISC-V International.
+Copyright 2024 by RISC-V International.
 
 [preface]
 include::contributors.adoc[]
 
 include::intro.adoc[]
-include::chapter2.adoc[]
+//include::chapter2.adoc[]
 
 // The index must precede the bibliography
-include::index.adoc[]
+//include::index.adoc[]
 include::bibliography.adoc[]

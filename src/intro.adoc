@@ -1,15 +1,25 @@
 [[intro]]
 == Introduction
 
-Lorem ipsum indexterm:[Lorem ipsum] dolor sit amet, consectetur adipiscing elit, sed do *eiusmod tempor* incididunt ut labore et dolore magna aliqua. Felis imperdiet proin fermentum leo vel orci porta. Volutpat lacus laoreet non curabitur indexterm:[curabitur] gravida indexterm:[gravida]. Posuere urna nec tincidunt praesent semper feugiat nibh. Elit ``ullamcorper`` dignissim cras tincidunt lobortis. Malesuada fames ac turpis egestas integer eget. Tristique sollicitudin nibh sit amet commodo. Sed felis eget velit aliquet. Sit amet aliquam id diam maecenas ultricies mi. Consectetur purus ut faucibus pulvinar. Lectus urna duis convallis convallis tellus id. Fermentum iaculis eu non diam. Feugiat in fermentum posuere urna nec tincidunt praesent semper feugiat. Urna nec tincidunt praesent semper feugiat nibh.
+The term _Post-Quantum Cryptography_ (PQC) refers to cryptographic algorithms that have been designed to be secure against attacks with quantum computers. It has been known since the mid-1990s cite:[Shor:1994] that asymptotically efficient quantum algorithms exist against integer factorization and discrete logarithm problems. These problems are central to the security of first-generation public-key cryptography algorithms that were invented in the 1970s and 1980s and came into widespread use as secure Internet protocols and applications were first developed in the 1990s and 2000s.
 
-Commodo viverra maecenas accumsan lacus. Vulputate odio ut enim blandit indexterm:[blandit] volutpat maecenas volutpat blandit. Urna porttitor rhoncus dolor purus non. Tellus mauris a diam maecenas sed. Vitae auctor eu augue ut lectus. Ridiculus mus mauris vitae ultricies leo integer. Consequat semper viverra nam *libero* justo laoreet sit amet. Pellentesque pulvinar pellentesque habitant morbi tristique senectus et netus et. Ac placerat vestibulum lectus mauris ``ultrices`` eros in cursus turpis. Accumsan in nisl nisi scelerisque eu ultrices vitae. Cras ornare arcu dui vivamus. Vitae congue mauris rhoncus aenean. Consequat mauris nunc congue nisi vitae suscipit tellus. Tempus egestas sed sed risus pretium quam vulputate dignissim. Quis varius quam quisque id diam vel. Mattis nunc sed blandit libero volutpat sed cras ornare arcu. Amet mauris commodo quis imperdiet massa tincidunt nunc.
+The engineering work towards realizing practical large-scale quantum computers has been ongoing for decades, and experts are continuously evaluating the quantum risk to cryptography cite:[Mosca:2023]. Since 2016 cite:[NIST:PQC-Call-2016], there has been a focused effort to standardize new cryptographic methods that are based on types of mathematical problems for which no efficient quantum attack exists. After a complex evaluation effort, an initial set of algorithms was selected in 2022 cite:[PQCR3:NIST-Report]. Official transition timelines for classified systems were put in place shortly afterward cite:[NSA:CNSA2.0], and similar transition efforts are also ongoing in civilian systems.
+
+The current draft Post-Quantum Cryptography standards published by the U.S. National Institute of Standards and Technology (NIST) are:
+
+*	*ML-KEM* (FIPS 203, Module-Lattice-based Key Encapsulation Mechanism Standard cite:[NIST:FIPS203ipd]), derived from the CRYSTALS-Kyber proposal cite:[PQCR3:Kyber]. ML-KEM is suitable for asymmetric key establishment and public key encryption.
+*	*ML-DSA* (FIPS 204, Module-Lattice-based Digital Signature Standard) cite:[NIST:FIPS204ipd]), derived from the CRYSTALS-Dilithium proposal cite:[PQCR3:Dilithium]. ML-DSA is a signature scheme suitable for asymmetric data and identity authentication.
+*	*SLH-DSA* (FIPS 205, Stateless Hash-Based Digital Signature Standard cite:[NIST:FIPS205ipd]), derived from the SPHINCS+ proposal cite:[PQCR3:SPHINCS]. SLH-DSA is a scheme mostly suitable for static data authentication, although as a stateless scheme, it can also be used for identity authentication.
 
 [NOTE]
 ====
-The name RISC-V indexterm:[RISC-V] was chosen to represent the fifth major RISC ISA design from UC Berkeley (RISC-I cite:[riscI-isca1981], RISC-II cite:[Katevenis:1983], SOAR cite:[Ungar:1984], and SPUR cite:[spur-jsscc1989] were the first four). We also pun on the use of the Roman numeral "V" to signify "variations" and "vectors", as support for a range of architecture research, including various data-parallel accelerators, is an explicit goal of the ISA design.
+Before the transition to quantum-safe cryptography, the tasks of ML-KEM were usually accomplished with (Elliptic Curve) Diffie-Hellman (DH/ECDH) Key Establishment cite:[IETF:RFC7748,NIST:SP800-56Ar3] or with RSA Public-Key Encryption cite:[IETF:RFC8017,NIST:SP800-56Br2].
+
+The tasks of ML-DSA and SLH-DSA signature schemes were usually accomplished with either RSA Signatures cite:[IETF:RFC8017] or with ECDSA/EdDSA Elliptic Curve signatures cite:[IETF:RFC8032,NIST:FIPS186-4].)
+
+During the transition period, many applications will be using hybrids where both classical and their PQC counterpart algorithms are executed and used for key establishment or authentication.
 ====
 
-=== Sub Section of Introduction
+=== Computational Bottlenecks of PQC Standards
 
-Pellentesque habitant morbi *tristique* senectus et netus et. Aliquam purus sit amet luctus. Odio eu ``feugiat`` pretium nibh ipsum consequat nisl vel. Euismod lacinia at quis risus sed vulputate odio ut. Eu sem integer vitae justo eget. Cursus euismod quis viverra nibh. Tempus egestas sed sed risus. Quis imperdiet massa tincidunt nunc pulvinar. Id venenatis a condimentum vitae sapien pellentesque habitant.
+Brief quantitative analysis.
