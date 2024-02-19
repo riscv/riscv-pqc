@@ -20,6 +20,22 @@ The tasks of ML-DSA and SLH-DSA signature schemes were usually accomplished with
 During the transition period, many applications will be using hybrids where both classical and their PQC counterpart algorithms are executed and used for key establishment or authentication.
 ====
 
-=== Computational Bottlenecks of PQC Standards
+The purpose of the PQC Extension is to provide RISC-V instructions that make the execution of the new standards substantially more efficient on RISC-V vector achitectures that implementthem. This results in shorter latencies for cryptographic protocols such as TLS cite:[IETF:RFC8446] handshakes, resulting in a better user experience and lowered energy consumption of networked devices.
 
-Brief quantitative analysis.
+
+=== FIPS 203 ML-KEM Acceleration Strategy
+
+ML-KEM cite:[NIST:FIPS203ipd] provides three main functions:
+
+*	*Key Generation*: `(ek,dk) = ML-KEM.KeyGen()` generates a keypair consisting of an encapsulation key `ek` and corresponding decapsulation key `dk`.
+*	*Encapsulation*: `(K,c) = ML-KEM.Encaps(ek)` uses an encapsulation key `ek` to create a shared secret `K` and a ciphertext message `c`.
+*	*Decapsulation*: `K = ML-KEM.Decaps(c, dk)` uses a decapsulation key `dk` to derive a shared secret `K` from ciphertext message `c`.
+
+While each of these functions consists of dozens of individual steps, quantitative analysis of an unaccelerated implementation shows that a majority of effort is spent on two tasks:
+
+*	Performing polynomial ring arithmetic implemented via Number Theoretic Transforms (NTT).
+*	Computation of the SHAKE XOF (Extendable-Output Function defined in FIPS 202 cite:[NIST:FIPS202]).
+
+For all security levels and functions of ML-KEM, ring arithmetic consists of multiplication, addition, and subtraction of polynomials modulo latexmath:[x^{256}+1], with each coefficient in finite field latexmath:[{GF}(q)] with prime latexmath:[q = 3329 = 13 \cdot 2^8+1]. The reduction polynomial degree 256 and finite field modulus 3329 means that elements in the polynomial ring are be usually represented internally vectors of 256 16-bit integers (typically split into several vector registers as `VLEN=4096` is rare.)
+
+Addition and subtraction of polynomials are a highly vectorizable linear-time operation. Multiplication of polynomials can be implemented with complexity latexmath:[O(n \log n)] in straightforward fashion due to the special structure of the polynomial ring. The Number Theoretic Transform (NTT) algorithm is in many ways analogous to Fast Fourier Transform (FFT), but uses roots of unity in the finite field rather than in the complex field.
