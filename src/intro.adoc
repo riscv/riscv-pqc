@@ -15,7 +15,7 @@ The current draft Post-Quantum Cryptography standards published by the U.S. Nati
 ====
 Before the transition to quantum-safe cryptography, the tasks of ML-KEM were usually accomplished with (Elliptic Curve) Diffie-Hellman (DH/ECDH) Key Establishment cite:[IETF:RFC7748,NIST:SP800-56Ar3] or with RSA Public-Key Encryption cite:[IETF:RFC8017,NIST:SP800-56Br2].
 
-The tasks of ML-DSA and SLH-DSA signature schemes were usually accomplished with either RSA Signatures cite:[IETF:RFC8017] or with ECDSA/EdDSA Elliptic Curve signatures cite:[IETF:RFC8032,NIST:FIPS186-4].)
+The tasks of ML-DSA and SLH-DSA signature schemes were usually accomplished with either RSA Signatures cite:[IETF:RFC8017] or with ECDSA/EdDSA Elliptic Curve signatures cite:[IETF:RFC8032,NIST:FIPS186-5].)
 
 During the transition period, many applications will be using hybrids where both classical and their PQC counterpart algorithms are executed and used for key establishment or authentication.
 ====
