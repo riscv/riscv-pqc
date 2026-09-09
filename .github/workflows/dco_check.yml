@@ -1,0 +1,21 @@
+---
+name: DCO Check
+
+# Every commit on a pull request must carry a `Signed-off-by:` trailer, the
+# Developer Certificate of Origin 1.1 assertion that the contributor had the
+# right to submit the work under this repository's license. See CONTRIBUTING.md.
+#
+# The check itself lives in riscv/docs-resources and is called as a reusable
+# workflow, so fixes to it reach this repository without copying the script.
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - converted_to_draft
+
+jobs:
+  dco_check:
+    uses: riscv/docs-resources/.github/workflows/dco_check.yml@main

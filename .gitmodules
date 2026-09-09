@@ -1,3 +1,24 @@
 [submodule "docs-resources"]
 	path = docs-resources
 	url = https://github.com/riscv/docs-resources.git
+
+# The three upstreams below are pristine checkouts that zvknhk/scripts/apply-*.sh
+# patch in place at build time. That dirties each work tree, so `ignore = dirty`
+# keeps `git status` clean; a changed pinned commit still shows up.
+
+[submodule "zvknhk/riscv-isa-sim"]
+	path = zvknhk/riscv-isa-sim
+	url = https://github.com/riscv-software-src/riscv-isa-sim.git
+	ignore = dirty
+
+[submodule "zvknhk/qemu-src"]
+	path = zvknhk/qemu-src
+	url = https://gitlab.com/qemu-project/qemu.git
+	ignore = dirty
+
+[submodule "zvknhk/demo/openssl"]
+	path = zvknhk/demo/openssl
+	url = https://github.com/openssl/openssl.git
+	ignore = dirty
+	# OpenSSL's full history is large and only one release is ever needed here.
+	shallow = true

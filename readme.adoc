@@ -2,7 +2,16 @@
 
 == License
 
-This work is licensed under a Creative Commons Attribution 4.0 International License (CC-BY-4.0). For details, see the link:LICENSE[LICENSE] file.
+The specification is licensed under a Creative Commons Attribution 4.0
+International License (CC-BY-4.0). For details, see the link:LICENSE[LICENSE]
+file. This covers the document sources in `src/` and everything built from them.
+
+The reference implementations and tests in `zvknhk/` are software, not
+specification text, and are licensed under the BSD 3-Clause License; see
+link:zvknhk/LICENSE[zvknhk/LICENSE]. That code is written to be copied into
+QEMU (GPL-2.0-or-later), OpenSSL (Apache-2.0) and Spike (BSD-3-Clause), and
+BSD-3-Clause is the license compatible with all three. Every file carries an
+`SPDX-License-Identifier` tag stating which of the two applies to it.
 
 == Contributors
 
@@ -20,6 +29,9 @@ The following directories are used to organize the contents of this repo:
 * `docs-resources/`: resources for all specifications sourced from link:.gitmodules[git submodule]
 * `src/`: source files for the specification
 * `build/`: default directory where the build artifacts are generated
+* `zvknhk/`: reference implementations and tests for the `Zvknhk` Vector Keccak
+  extension — see link:zvknhk/README.md[zvknhk/README.md]. Nothing here is
+  needed to build the document.
 
 === Prerequisites
 
@@ -40,7 +52,7 @@ git clone --recurse-submodules https://github.com/riscv/riscv-pqc.git
 To start the build process, run:
 
 ```shell
-cd ./docs-spec-template && make build
+cd ./riscv-pqc && make build
 ```
 
 The link:Makefile[] script will check the availability of Docker on your system:

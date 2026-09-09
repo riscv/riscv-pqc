@@ -20,7 +20,7 @@ ghcr.io/riscv/riscv-docs-base-container-image:latest
 
 SRC_DIR := src
 BUILD_DIR := build
-HEADER_SOURCE := $(SRC_DIR)/spec-sample.adoc
+HEADER_SOURCE := $(SRC_DIR)/riscv-pqc.adoc
 XTRA_ADOC_OPTS :=
 ASCIIDOCTOR_PDF := asciidoctor-pdf
 ASCIIDOCTOR_HTML := asciidoctor
