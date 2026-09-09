@@ -1,1 +1,7 @@
 /build/*
+
+# Reference-implementation build trees (zvknhk/). The upstream submodules are
+# configured and built in place; none of that belongs in the repository.
+zvknhk/riscv-isa-sim/build/
+zvknhk/qemu-src/build/
+zvknhk/demo/openssl/build/
