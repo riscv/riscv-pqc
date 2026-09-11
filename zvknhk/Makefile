@@ -4,9 +4,11 @@
 # Makefile for the Zvknhk (Vector Keccak) reference implementations and tests.
 #
 # The specification itself lives in ../src/zvknhk.adoc and is built by the
-# Makefile at the repository root; nothing here touches the document.
+# Makefile at the repository root. Its operation listing is included directly
+# from sail/zvknhk_insts.sail; the targets here build implementations and tests.
 #
 # Targets:
+#   make test-sail    — Compile and run the standalone Sail operation tests
 #   make spike        — Build Spike (riscv-isa-sim) with the Zvknhk instruction
 #   make patch-spike  — Patch the Zvknhk instruction into the upstream Spike sources
 #   make unpatch-spike— Restore the Spike sources to pristine upstream
@@ -59,6 +61,7 @@ NPROC ?= $(shell nproc 2>/dev/null || echo 4)
 GIT := git -C $(CURDIR)
 
 .PHONY: all clean
+.PHONY: test-sail
 .PHONY: spike patch-spike unpatch-spike test test-all test-clean spike-clean sim-submodule-init
 .PHONY: qemu patch-qemu unpatch-qemu qemu-clean qemu-submodule-init test-qemu test-qemu-all
 .PHONY: boot-qemu boot-qemu-all
@@ -66,6 +69,9 @@ GIT := git -C $(CURDIR)
 .PHONY: test-openssl test-openssl-all
 
 all: test
+
+test-sail:
+	$(MAKE) -C sail test
 
 clean:
 	$(MAKE) spike-clean qemu-clean openssl-clean test-clean

@@ -6,20 +6,23 @@ Keccak-_p_[1600] permutation.
 
 The normative definition is [`../src/zvknhk.adoc`](../src/zvknhk.adoc), a
 chapter of the PQC specification built by the Makefile at the repository root.
-Nothing in this directory is needed to build that document, and nothing here is
-normative: where an implementation and the specification disagree, the
-specification wins.
+Its operation listing is included directly from
+[`sail/zvknhk_insts.sail`](sail/zvknhk_insts.sail). The other implementations
+are non-normative: where an implementation and the specification disagree,
+the specification wins.
 
-There are three implementations, in ascending order of distance from the spec:
+The Sail operation and reference implementations are:
 
 | | What it is | Source of truth |
 |---|---|---|
+| **Sail** | the specification's operation listing and standalone tests | [`sail/`](sail/README.md) |
 | **Spike** | the instruction's semantics in the RISC-V ISA simulator | [`spike/vkeccak_vi.h`](spike/vkeccak_vi.h) |
 | **QEMU** | the same semantics for TCG | [`qemu/`](qemu/README.md) |
 | **OpenSSL** | a consumer — SHA-3/SHAKE/ML-KEM/ML-DSA running on the instruction | [`openssl/`](openssl/README.md) |
 
-Each upstream is a pristine submodule that `scripts/apply-*-patch.sh` layers the
-change onto at build time; the editable sources live here. The round body in
+The Spike, QEMU and OpenSSL upstreams are pristine submodules that
+`scripts/apply-*-patch.sh` layers the changes onto at build time; the editable
+sources live here. The round body in
 `qemu/vkeccak_vi.c.inc` is character-for-character the one in
 `spike/vkeccak_vi.h`, so the two reference implementations cannot drift apart.
 
@@ -33,6 +36,15 @@ BSD-3-Clause is the deliberate choice: this code is written to be copied into
 QEMU (GPL-2.0-or-later), OpenSSL (Apache-2.0) and Spike (BSD-3-Clause), and it
 is the license compatible with all three. Apache-2.0 would not be — it cannot
 be combined with QEMU, which is GPLv2 as a whole.
+
+## Build — Sail
+
+Run `make test-sail` from this directory, or `make -C zvknhk/sail test`
+from the repository root. This compiles and runs the specification's Sail
+operation with a standalone test harness. It needs Sail and a host C compiler;
+no submodules or RISC-V toolchain are needed.
+See [`sail/README.md`](sail/README.md) for dependencies, test coverage, and the
+remaining work for integration into the full RISC-V Sail model.
 
 ## Getting the submodules
 
@@ -310,6 +322,7 @@ make clean   # remove the Spike, QEMU, OpenSSL and test build artifacts
 
 ## Directory structure
 
+- **`sail/`** — the specification's Sail operation and standalone test harness
 - **`spike/vkeccak_vi.h`** — the instruction's reference semantics for Spike;
   the source of truth for the simulator, edit it here
 - **`qemu/`** — the instruction's reference semantics for QEMU, and

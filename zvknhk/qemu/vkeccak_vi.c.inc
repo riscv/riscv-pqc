@@ -114,7 +114,8 @@ void HELPER(vkeccak_vi)(void *vd_vptr, CPURISCVState *env, uint32_t imm5)
     /*
      * The permutation itself. Carried over verbatim from the original
      * implementation by Nicolas Brunie, and identical to the round body in
-     * spike/vkeccak_vi.h and the pseudocode in zvknhk.adoc.
+     * spike/vkeccak_vi.h. It is equivalent to the Sail operation in
+     * sail/zvknhk_insts.sail.
      */
     for (uint32_t ridx = 0; ridx < roundCnt; ++ridx) {
 
