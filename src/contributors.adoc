@@ -3,6 +3,6 @@
 This RISC-V specification has been contributed to directly or indirectly by:
 
 [%hardbreaks]
-* Nicolas Brunie
 * Markku-Juhani O. Saarinen <markku-juhani.saarinen@tuni.fi>
+* Nicolas Brunie <nicolas.brunie@sifive.com>
 * Members of the RISC-V Post-Quantum Cryptography Task Group (PQC TG)
