@@ -111,8 +111,8 @@ uint64_t A_4_3 = VKECCAK_A(4, 3);
 uint64_t A_4_4 = VKECCAK_A(4, 4);
 
 // The permutation itself. This round body is carried over verbatim from the
-// original implementation by Nicolas Brunie, and matches the pseudocode in
-// zvknhk.adoc.
+// original implementation by Nicolas Brunie, and is equivalent to the Sail
+// operation in sail/zvknhk_insts.sail.
 for (std::size_t ridx = 0; ridx < roundCnt; ++ridx) {
 
         uint64_t C_0= A_0_0 ^ A_0_1 ^ A_0_2 ^ A_0_3 ^ A_0_4;

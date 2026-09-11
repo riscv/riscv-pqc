@@ -30,8 +30,9 @@ The following directories are used to organize the contents of this repo:
 * `src/`: source files for the specification
 * `build/`: default directory where the build artifacts are generated
 * `zvknhk/`: reference implementations and tests for the `Zvknhk` Vector Keccak
-  extension — see link:zvknhk/README.md[zvknhk/README.md]. Nothing here is
-  needed to build the document.
+  extension — see link:zvknhk/README.md[zvknhk/README.md]. The document includes
+  `zvknhk/sail/zvknhk_insts.sail` directly; building it does not require the
+  Sail compiler or the reference-implementation submodules.
 
 === Prerequisites
 
@@ -57,7 +58,7 @@ cd ./riscv-pqc && make build
 
 The link:Makefile[] script will check the availability of Docker on your system:
 
-* If Docker is available, the documentation will be built inside a Docker container using the image riscvintl/riscv-docs-base-container-image:latest. This ensures a consistent build environment across different systems.
+* If Docker is available, the documentation will be built inside a Docker container using the image `ghcr.io/riscv/riscv-docs-base-container-image:latest`. This ensures a consistent build environment across different systems.
 * If Docker is not available, the documentation will be built directly on your system using the installed tools.
 
 The documentation is generated from the AsciiDoctor source files in your project. The primary source file is specified by the `HEADER_SOURCE` variable in the Makefile.

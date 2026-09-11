@@ -42,14 +42,19 @@ jobs:
 
       # Step 2: Pull the latest RISC-V Docs container image
       - name: Pull Container
-        run: docker pull riscvintl/riscv-docs-base-container-image:latest
+        run: docker pull ghcr.io/riscv/riscv-docs-base-container-image:latest
 
       # Step 3: Build Files
       - name: Build Files
-        run: make
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            make VERSION="v${INPUT_VERSION}" REVMARK="${INPUT_REVMARK}"
+          else
+            make
+          fi
         env:
-          VERSION: v${{ github.event.inputs.version }}
-          REVMARK: ${{ github.event.inputs.revision_mark }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_REVMARK: ${{ github.event.inputs.revision_mark }}
 
       # Step 4: Upload the built PDF files as a single artifact
       - name: Upload Build Artifacts

@@ -2,12 +2,12 @@
 Authors: Markku-Juhani O. Saarinen
 :docgroup: RISC-V Task Group
 :description: RISC-V Post-Quantum Cryptography Extension
-:company: RISC-V.org
-:revdate: 2/2024
-:revnumber: 0.0
-:revremark: This document is under development. Expect potential changes. Visit http://riscv.org/spec-state for further details.
+:company: RISC-V International
+:revdate: 2026-09-11
+:revnumber: v0.1
+:revremark: This document is under development. Expect potential changes. Visit https://riscv.org/specifications/development/ for further details.
 :revinfo:
-:url-riscv: http://riscv.org
+:url-riscv: https://riscv.org
 :doctype: book
 :preface-title: Preamble
 :colophon:
@@ -41,7 +41,7 @@ endif::[]
 :xrefstyle: short
 
 [WARNING]
-.This document is in the link:http://riscv.org/spec-state[Development state]
+.This document is in the link:https://riscv.org/specifications/development/[Development state]
 ====
 Expect potential changes. This draft specification is likely to evolve before
 it is accepted as a standard. Implementations based on this draft
@@ -55,7 +55,7 @@ Attribution 4.0 International License (CC-BY 4.0). The full
 license text is available at
 https://creativecommons.org/licenses/by/4.0/.
 
-Copyright 2024 by RISC-V International.
+Copyright 2026 by RISC-V International.
 
 [preface]
 include::contributors.adoc[]

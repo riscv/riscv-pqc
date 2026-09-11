@@ -15,21 +15,17 @@ This section introduces `Zvknhk`.
 `Zvknhk` depends on `Zve64x` and requires `VLEN` to be at least 128 bits
 (`Zvl128b`).
 
-
 As the instructions defined in this specification might be used to implement
 cryptographic primitives, they must satisfy the data-independent execution
 latency requirements defined for `Zvkt`, the Vector Data-Independent
 Execution Latency subset of the RISC-V Vector Cryptography extensions.
 
-Detection of individual cryptography extensions uses the
-unified software-based RISC-V discovery method.
-
 [NOTE]
 ====
-At the time of writing, these discovery mechanisms are still a work in
-progress.
+The DIEL mandate is independent of support for `Zvkt`: `Zvknhk` defines
+instructions used primarily for cryptography, and they would be of little use
+if their execution latency could leak information about input data.
 ====
-
 
 `Zvknhk` defines `vkeccak.vi` to enable efficient implementations of
 Keccak-based sponge functions.
@@ -120,10 +116,6 @@ starting at `vd=v0` is laid out as:
 | `v7` | _state tail_ | _state tail_ | _state tail_ | _state tail_
 |===
 
-Note:: The DIEL mandate is independent of support for `Zvkt`: `Zvknhk` defines
-instructions used primarily for cryptography, and they would be of little use
-if their execution latency could leak information about input data.
-
 The permutation is not element-restartable. Executing `vkeccak.vi` with a
 nonzero `vstart` raises an illegal-instruction exception. As for every vector
 instruction, successful completion resets `vstart` to zero. The fixed-group
@@ -145,7 +137,7 @@ some state elements updated.
 |===
 
 
-[[insns-vkeccak-vi, Vector Multi-Round Keccak ]]
+[[insns-vkeccak-vi, Vector Multi-Round Keccak]]
 === vkeccak.vi
 
 Synopsis::
@@ -212,273 +204,34 @@ permutation rounds is selected by the 5-bit immediate `imm5`:
 
 All other values of `imm5` (`0b00010` through `0b11111`) are _reserved_.
 
-The round constants and their indexing follow
-link:https://doi.org/10.6028/NIST.FIPS.202[FIPS 202] (Sec. 3.2.5 and 3.3): the
+The round constants and their indexing follow FIPS 202 (Sec. 3.2.5 and 3.3)
+cite:[NIST:FIPS202]: the
 24-round permutation uses round constants `RC[0]` through `RC[23]`, while the
 reduced 12-round permutation uses the last twelve, `RC[12]` through `RC[23]`.
 This is the same selection as Keccak-_p_[1600,12] used by TurboSHAKE
-(link:https://www.rfc-editor.org/rfc/rfc9861[RFC 9861]), which tabulates these
-twelve constants re-indexed `0` through `11`.
+as specified in RFC 9861 cite:[IETF:RFC9861], which tabulates these twelve
+constants re-indexed `0` through `11`.
 
 
 Operation::
 
-The pseudocode below uses `KECCAK_ROL(x, n)` for a 64-bit cyclic left rotation
-and `KECCAK_RC[0..23]` for the Keccak-_f_[1600] round constants from
-link:https://doi.org/10.6028/NIST.FIPS.202[FIPS 202] (Sec. 3.2.5).
-`get_fixed_eg(vd)` reads the one fixed element group described above, independent
-of `vl` and `LMUL`; `set_fixed_eg_elem(vd, i, value)` writes only element `i` of
-that group.
+The Sail code below uses `get_fixed_eg(vd)` to read the one fixed element
+group described above, independent of `vl` and `LMUL`.
+`set_fixed_eg_elem(vd, i, value)` writes only element `i` of that group.
+These are model primitives for the instruction-specific fixed register group.
+The operator `x <<< n` rotates the 64-bit word `x` left by `n` bit positions.
 
-[source,pseudocode]
+[source,sail]
 --
-// 64-bit cyclic left rotation.
-uint64_t KECCAK_ROL(uint64_t x, unsigned n) {
-    return (n == 0) ? x : ((x << n) | (x >> (64 - n)));
-}
-
-// The 24 Keccak-f[1600] round constants (FIPS 202, Sec. 3.2.5).
-const uint64_t KECCAK_RC[24] = {
-    0x0000000000000001, 0x0000000000008082, 0x800000000000808A, 0x8000000080008000,
-    0x000000000000808B, 0x0000000080000001, 0x8000000080008081, 0x8000000000008009,
-    0x000000000000008A, 0x0000000000000088, 0x0000000080008009, 0x000000008000000A,
-    0x000000008000808B, 0x800000000000008B, 0x8000000000008089, 0x8000000000008003,
-    0x8000000000008002, 0x8000000000000080, 0x000000000000800A, 0x800000008000000A,
-    0x8000000080008081, 0x8000000000008080, 0x0000000080000001, 0x8000000080008008,
-};
-
-function clause execute (VKECCAKVI(imm5, vd)) = {
-  if (vstart != 0) then {
-    handle_illegal();  // illegal instruction exception
-    RETIRE_FAIL
-  } else {
-
-  // Decode the number of Keccak-p[1600] rounds from the 5-bit immediate:
-  //   imm5 == 0 -> 24 rounds (Keccak-f[1600]);  imm5 == 1 -> 12 rounds.
-  // All other immediate values are reserved.
-  uint32_t roundCnt;
-  switch (imm5) {
-    case 0:  roundCnt = 24; break;
-    case 1:  roundCnt = 12; break;
-    default: handle_illegal(); RETIRE_FAIL;   // reserved immediate
-  }
-  // Keccak-p[1600, roundCnt] uses round constants RC[24 - roundCnt] .. RC[23].
-  const uint32_t rc_offset = 24 - roundCnt;
-
-    // Read the single fixed group. This does not depend on vl or LMUL.
-    EGU64x32_t keccak_state = get_fixed_eg(vd);
-
-    // unpacking state
-    uint64_t A_0_0 = keccak_state[0 + 5 * 0];
-    uint64_t A_0_1 = keccak_state[0 + 5 * 1];
-    uint64_t A_0_2 = keccak_state[0 + 5 * 2];
-    uint64_t A_0_3 = keccak_state[0 + 5 * 3];
-    uint64_t A_0_4 = keccak_state[0 + 5 * 4];
-    uint64_t A_1_0 = keccak_state[1 + 5 * 0];
-    uint64_t A_1_1 = keccak_state[1 + 5 * 1];
-    uint64_t A_1_2 = keccak_state[1 + 5 * 2];
-    uint64_t A_1_3 = keccak_state[1 + 5 * 3];
-    uint64_t A_1_4 = keccak_state[1 + 5 * 4];
-    uint64_t A_2_0 = keccak_state[2 + 5 * 0];
-    uint64_t A_2_1 = keccak_state[2 + 5 * 1];
-    uint64_t A_2_2 = keccak_state[2 + 5 * 2];
-    uint64_t A_2_3 = keccak_state[2 + 5 * 3];
-    uint64_t A_2_4 = keccak_state[2 + 5 * 4];
-    uint64_t A_3_0 = keccak_state[3 + 5 * 0];
-    uint64_t A_3_1 = keccak_state[3 + 5 * 1];
-    uint64_t A_3_2 = keccak_state[3 + 5 * 2];
-    uint64_t A_3_3 = keccak_state[3 + 5 * 3];
-    uint64_t A_3_4 = keccak_state[3 + 5 * 4];
-    uint64_t A_4_0 = keccak_state[4 + 5 * 0];
-    uint64_t A_4_1 = keccak_state[4 + 5 * 1];
-    uint64_t A_4_2 = keccak_state[4 + 5 * 2];
-    uint64_t A_4_3 = keccak_state[4 + 5 * 3];
-    uint64_t A_4_4 = keccak_state[4 + 5 * 4];
-    // executed the number of requested keccak rounds
-    for (uint32_t ridx = 0; ridx < roundCnt; ++ridx) {
-        uint64_t C_0= A_0_0 ^ A_0_1 ^ A_0_2 ^ A_0_3 ^ A_0_4;
-        uint64_t C_1= A_1_0 ^ A_1_1 ^ A_1_2 ^ A_1_3 ^ A_1_4;
-        uint64_t C_2= A_2_0 ^ A_2_1 ^ A_2_2 ^ A_2_3 ^ A_2_4;
-        uint64_t C_3= A_3_0 ^ A_3_1 ^ A_3_2 ^ A_3_3 ^ A_3_4;
-        uint64_t C_4= A_4_0 ^ A_4_1 ^ A_4_2 ^ A_4_3 ^ A_4_4;
-        uint64_t D_0 = C_4 ^ KECCAK_ROL(C_1,1);
-        A_0_0 ^= D_0;
-        A_0_1 ^= D_0;
-        A_0_2 ^= D_0;
-        A_0_3 ^= D_0;
-        A_0_4 ^= D_0;
-        uint64_t D_1 = C_0 ^ KECCAK_ROL(C_2,1);
-        A_1_0 ^= D_1;
-        A_1_1 ^= D_1;
-        A_1_2 ^= D_1;
-        A_1_3 ^= D_1;
-        A_1_4 ^= D_1;
-        uint64_t D_2 = C_1 ^ KECCAK_ROL(C_3,1);
-        A_2_0 ^= D_2;
-        A_2_1 ^= D_2;
-        A_2_2 ^= D_2;
-        A_2_3 ^= D_2;
-        A_2_4 ^= D_2;
-        uint64_t D_3 = C_2 ^ KECCAK_ROL(C_4,1);
-        A_3_0 ^= D_3;
-        A_3_1 ^= D_3;
-        A_3_2 ^= D_3;
-        A_3_3 ^= D_3;
-        A_3_4 ^= D_3;
-        uint64_t D_4 = C_3 ^ KECCAK_ROL(C_0,1);
-        A_4_0 ^= D_4;
-        A_4_1 ^= D_4;
-        A_4_2 ^= D_4;
-        A_4_3 ^= D_4;
-        A_4_4 ^= D_4;
-        uint64_t T_0 = A_1_0;
-        uint64_t T_1 = A_0_2;
-        A_0_2 = KECCAK_ROL(T_0, 1);
-        uint64_t T_2 = A_2_1;
-        A_2_1 = KECCAK_ROL(T_1, 3);
-        uint64_t T_3 = A_1_2;
-        A_1_2 = KECCAK_ROL(T_2, 6);
-        uint64_t T_4 = A_2_3;
-        A_2_3 = KECCAK_ROL(T_3, 10);
-        uint64_t T_5 = A_3_3;
-        A_3_3 = KECCAK_ROL(T_4, 15);
-        uint64_t T_6 = A_3_0;
-        A_3_0 = KECCAK_ROL(T_5, 21);
-        uint64_t T_7 = A_0_1;
-        A_0_1 = KECCAK_ROL(T_6, 28);
-        uint64_t T_8 = A_1_3;
-        A_1_3 = KECCAK_ROL(T_7, 36);
-        uint64_t T_9 = A_3_1;
-        A_3_1 = KECCAK_ROL(T_8, 45);
-        uint64_t T_10 = A_1_4;
-        A_1_4 = KECCAK_ROL(T_9, 55);
-        uint64_t T_11 = A_4_4;
-        A_4_4 = KECCAK_ROL(T_10, 2);
-        uint64_t T_12 = A_4_0;
-        A_4_0 = KECCAK_ROL(T_11, 14);
-        uint64_t T_13 = A_0_3;
-        A_0_3 = KECCAK_ROL(T_12, 27);
-        uint64_t T_14 = A_3_4;
-        A_3_4 = KECCAK_ROL(T_13, 41);
-        uint64_t T_15 = A_4_3;
-        A_4_3 = KECCAK_ROL(T_14, 56);
-        uint64_t T_16 = A_3_2;
-        A_3_2 = KECCAK_ROL(T_15, 8);
-        uint64_t T_17 = A_2_2;
-        A_2_2 = KECCAK_ROL(T_16, 25);
-        uint64_t T_18 = A_2_0;
-        A_2_0 = KECCAK_ROL(T_17, 43);
-        uint64_t T_19 = A_0_4;
-        A_0_4 = KECCAK_ROL(T_18, 62);
-        uint64_t T_20 = A_4_2;
-        A_4_2 = KECCAK_ROL(T_19, 18);
-        uint64_t T_21 = A_2_4;
-        A_2_4 = KECCAK_ROL(T_20, 39);
-        uint64_t T_22 = A_4_1;
-        A_4_1 = KECCAK_ROL(T_21, 61);
-        uint64_t T_23 = A_1_1;
-        A_1_1 = KECCAK_ROL(T_22, 20);
-        A_1_0 = KECCAK_ROL(T_23, 44);
-        uint64_t C_0_0 = A_0_0;
-        uint64_t C_0_1 = A_1_0;
-        uint64_t C_0_2 = A_2_0;
-        uint64_t C_0_3 = A_3_0;
-        uint64_t C_0_4 = A_4_0;
-        A_0_0 = C_0_0 ^ (~C_0_1 & C_0_2);
-        A_1_0 = C_0_1 ^ (~C_0_2 & C_0_3);
-        A_2_0 = C_0_2 ^ (~C_0_3 & C_0_4);
-        A_3_0 = C_0_3 ^ (~C_0_4 & C_0_0);
-        A_4_0 = C_0_4 ^ (~C_0_0 & C_0_1);
-        uint64_t C_1_0 = A_0_1;
-        uint64_t C_1_1 = A_1_1;
-        uint64_t C_1_2 = A_2_1;
-        uint64_t C_1_3 = A_3_1;
-        uint64_t C_1_4 = A_4_1;
-        A_0_1 = C_1_0 ^ (~C_1_1 & C_1_2);
-        A_1_1 = C_1_1 ^ (~C_1_2 & C_1_3);
-        A_2_1 = C_1_2 ^ (~C_1_3 & C_1_4);
-        A_3_1 = C_1_3 ^ (~C_1_4 & C_1_0);
-        A_4_1 = C_1_4 ^ (~C_1_0 & C_1_1);
-        uint64_t C_2_0 = A_0_2;
-        uint64_t C_2_1 = A_1_2;
-        uint64_t C_2_2 = A_2_2;
-        uint64_t C_2_3 = A_3_2;
-        uint64_t C_2_4 = A_4_2;
-        A_0_2 = C_2_0 ^ (~C_2_1 & C_2_2);
-        A_1_2 = C_2_1 ^ (~C_2_2 & C_2_3);
-        A_2_2 = C_2_2 ^ (~C_2_3 & C_2_4);
-        A_3_2 = C_2_3 ^ (~C_2_4 & C_2_0);
-        A_4_2 = C_2_4 ^ (~C_2_0 & C_2_1);
-        uint64_t C_3_0 = A_0_3;
-        uint64_t C_3_1 = A_1_3;
-        uint64_t C_3_2 = A_2_3;
-        uint64_t C_3_3 = A_3_3;
-        uint64_t C_3_4 = A_4_3;
-        A_0_3 = C_3_0 ^ (~C_3_1 & C_3_2);
-        A_1_3 = C_3_1 ^ (~C_3_2 & C_3_3);
-        A_2_3 = C_3_2 ^ (~C_3_3 & C_3_4);
-        A_3_3 = C_3_3 ^ (~C_3_4 & C_3_0);
-        A_4_3 = C_3_4 ^ (~C_3_0 & C_3_1);
-        uint64_t C_4_0 = A_0_4;
-        uint64_t C_4_1 = A_1_4;
-        uint64_t C_4_2 = A_2_4;
-        uint64_t C_4_3 = A_3_4;
-        uint64_t C_4_4 = A_4_4;
-        A_0_4 = C_4_0 ^ (~C_4_1 & C_4_2);
-        A_1_4 = C_4_1 ^ (~C_4_2 & C_4_3);
-        A_2_4 = C_4_2 ^ (~C_4_3 & C_4_4);
-        A_3_4 = C_4_3 ^ (~C_4_4 & C_4_0);
-        A_4_4 = C_4_4 ^ (~C_4_0 & C_4_1);
-        // ι (iota) step
-        A_0_0 ^= KECCAK_RC[rc_offset + ridx];
-    }
-    // epilog: populating back keccak state
-    keccak_state[0 + 5 * 0] = A_0_0;
-    keccak_state[0 + 5 * 1] = A_0_1;
-    keccak_state[0 + 5 * 2] = A_0_2;
-    keccak_state[0 + 5 * 3] = A_0_3;
-    keccak_state[0 + 5 * 4] = A_0_4;
-    keccak_state[1 + 5 * 0] = A_1_0;
-    keccak_state[1 + 5 * 1] = A_1_1;
-    keccak_state[1 + 5 * 2] = A_1_2;
-    keccak_state[1 + 5 * 3] = A_1_3;
-    keccak_state[1 + 5 * 4] = A_1_4;
-    keccak_state[2 + 5 * 0] = A_2_0;
-    keccak_state[2 + 5 * 1] = A_2_1;
-    keccak_state[2 + 5 * 2] = A_2_2;
-    keccak_state[2 + 5 * 3] = A_2_3;
-    keccak_state[2 + 5 * 4] = A_2_4;
-    keccak_state[3 + 5 * 0] = A_3_0;
-    keccak_state[3 + 5 * 1] = A_3_1;
-    keccak_state[3 + 5 * 2] = A_3_2;
-    keccak_state[3 + 5 * 3] = A_3_3;
-    keccak_state[3 + 5 * 4] = A_3_4;
-    keccak_state[4 + 5 * 0] = A_4_0;
-    keccak_state[4 + 5 * 1] = A_4_1;
-    keccak_state[4 + 5 * 2] = A_4_2;
-    keccak_state[4 + 5 * 3] = A_4_3;
-    keccak_state[4 + 5 * 4] = A_4_4;
-
-    // Write only the 25 state elements. Elements 25..31 and all bits outside
-    // the fixed group are unchanged.
-    for (uint32_t i = 0; i < 25; ++i) {
-        set_fixed_eg_elem(vd, i, keccak_state[i]);
-    }
-  RETIRE_SUCCESS
-  }
-}
+include::../zvknhk/sail/zvknhk_insts.sail[tag=operation]
 --
 
 Included in::
 <<zvknhk>>
 
-
-
-
 [[Encodings]]
 === Encodings
-[appendix]
-[[crypto_vector_instructions_Zvkgs]]
+[[crypto_vector_instructions_zvknhk]]
 ==== Additional Vector Cryptographic Instructions
 
 OP-VE (0x77)
