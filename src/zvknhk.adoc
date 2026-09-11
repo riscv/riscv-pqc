@@ -15,21 +15,17 @@ This section introduces `Zvknhk`.
 `Zvknhk` depends on `Zve64x` and requires `VLEN` to be at least 128 bits
 (`Zvl128b`).
 
-
 As the instructions defined in this specification might be used to implement
 cryptographic primitives, they must satisfy the data-independent execution
 latency requirements defined for `Zvkt`, the Vector Data-Independent
 Execution Latency subset of the RISC-V Vector Cryptography extensions.
 
-Detection of individual cryptography extensions uses the
-unified software-based RISC-V discovery method.
-
 [NOTE]
 ====
-At the time of writing, these discovery mechanisms are still a work in
-progress.
+The DIEL mandate is independent of support for `Zvkt`: `Zvknhk` defines
+instructions used primarily for cryptography, and they would be of little use
+if their execution latency could leak information about input data.
 ====
-
 
 `Zvknhk` defines `vkeccak.vi` to enable efficient implementations of
 Keccak-based sponge functions.
@@ -120,10 +116,6 @@ starting at `vd=v0` is laid out as:
 | `v7` | _state tail_ | _state tail_ | _state tail_ | _state tail_
 |===
 
-Note:: The DIEL mandate is independent of support for `Zvkt`: `Zvknhk` defines
-instructions used primarily for cryptography, and they would be of little use
-if their execution latency could leak information about input data.
-
 The permutation is not element-restartable. Executing `vkeccak.vi` with a
 nonzero `vstart` raises an illegal-instruction exception. As for every vector
 instruction, successful completion resets `vstart` to zero. The fixed-group
@@ -145,7 +137,7 @@ some state elements updated.
 |===
 
 
-[[insns-vkeccak-vi, Vector Multi-Round Keccak ]]
+[[insns-vkeccak-vi, Vector Multi-Round Keccak]]
 === vkeccak.vi
 
 Synopsis::
@@ -212,20 +204,20 @@ permutation rounds is selected by the 5-bit immediate `imm5`:
 
 All other values of `imm5` (`0b00010` through `0b11111`) are _reserved_.
 
-The round constants and their indexing follow
-link:https://doi.org/10.6028/NIST.FIPS.202[FIPS 202] (Sec. 3.2.5 and 3.3): the
+The round constants and their indexing follow FIPS 202 (Sec. 3.2.5 and 3.3)
+cite:[NIST:FIPS202]: the
 24-round permutation uses round constants `RC[0]` through `RC[23]`, while the
 reduced 12-round permutation uses the last twelve, `RC[12]` through `RC[23]`.
 This is the same selection as Keccak-_p_[1600,12] used by TurboSHAKE
-(link:https://www.rfc-editor.org/rfc/rfc9861[RFC 9861]), which tabulates these
-twelve constants re-indexed `0` through `11`.
+as specified in RFC 9861 cite:[IETF:RFC9861], which tabulates these twelve
+constants re-indexed `0` through `11`.
 
 
 Operation::
 
 The pseudocode below uses `KECCAK_ROL(x, n)` for a 64-bit cyclic left rotation
-and `KECCAK_RC[0..23]` for the Keccak-_f_[1600] round constants from
-link:https://doi.org/10.6028/NIST.FIPS.202[FIPS 202] (Sec. 3.2.5).
+and `KECCAK_RC[0..23]` for the Keccak-_f_[1600] round constants from FIPS 202
+(Sec. 3.2.5) cite:[NIST:FIPS202].
 `get_fixed_eg(vd)` reads the one fixed element group described above, independent
 of `vl` and `LMUL`; `set_fixed_eg_elem(vd, i, value)` writes only element `i` of
 that group.
@@ -253,17 +245,17 @@ function clause execute (VKECCAKVI(imm5, vd)) = {
     RETIRE_FAIL
   } else {
 
-  // Decode the number of Keccak-p[1600] rounds from the 5-bit immediate:
-  //   imm5 == 0 -> 24 rounds (Keccak-f[1600]);  imm5 == 1 -> 12 rounds.
-  // All other immediate values are reserved.
-  uint32_t roundCnt;
-  switch (imm5) {
-    case 0:  roundCnt = 24; break;
-    case 1:  roundCnt = 12; break;
-    default: handle_illegal(); RETIRE_FAIL;   // reserved immediate
-  }
-  // Keccak-p[1600, roundCnt] uses round constants RC[24 - roundCnt] .. RC[23].
-  const uint32_t rc_offset = 24 - roundCnt;
+    // Decode the number of Keccak-p[1600] rounds from the 5-bit immediate:
+    //   imm5 == 0 -> 24 rounds (Keccak-f[1600]);  imm5 == 1 -> 12 rounds.
+    // All other immediate values are reserved.
+    uint32_t roundCnt;
+    switch (imm5) {
+      case 0:  roundCnt = 24; break;
+      case 1:  roundCnt = 12; break;
+      default: handle_illegal(); RETIRE_FAIL;   // reserved immediate
+    }
+    // Keccak-p[1600, roundCnt] uses RC[24 - roundCnt] through RC[23].
+    const uint32_t rc_offset = 24 - roundCnt;
 
     // Read the single fixed group. This does not depend on vl or LMUL.
     EGU64x32_t keccak_state = get_fixed_eg(vd);
@@ -472,13 +464,9 @@ function clause execute (VKECCAKVI(imm5, vd)) = {
 Included in::
 <<zvknhk>>
 
-
-
-
 [[Encodings]]
 === Encodings
-[appendix]
-[[crypto_vector_instructions_Zvkgs]]
+[[crypto_vector_instructions_zvknhk]]
 ==== Additional Vector Cryptographic Instructions
 
 OP-VE (0x77)
