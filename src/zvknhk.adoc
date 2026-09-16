@@ -32,73 +32,74 @@ Keccak-based sponge functions.
 
 The instructions defined in this specification share the following constraints:
 
-- each instruction operates on exactly one element group;
 - element group size (`EGS`) is 32 and element group width (`EGW`) is 2048 bits;
 - each element is a 64-bit word and the instructions are only defined for
-  `SEW=64`; and
+  `SEW=64`;
+- `vl` and `vstart` must be multiples of `EGS=32`, otherwise the behavior is
+  _reserved_; and
 - execution timing is data independent.
 
-The `vd` operand of `vkeccak.vi` is a _single element group_, rather than a
-vector of element groups. The instruction has an effective vector length
-(`evl`) of `EGS=32` and always operates on exactly one 2048-bit group designated
-by `vd`. Its operation is independent of `vl`, including when `vl=0`; in
-particular, the vector-of-element-groups rules that derive a group count from
-`vl/EGS` do not apply. This instruction-defined `evl` is not the `vl` CSR, and
-software does not need to set `vl` to 32. The usual active, inactive, and tail
-element classification derived from `vl` does not apply to this fixed group.
-In particular, `vkeccak.vi` is an explicit exception to the Vector Crypto rule
-that `vl` be an integer multiple of `EGS`; every value of `vl` is permitted.
+Except at `VLEN=128`, as specified in <<zvknhk-vlen128>>, `vkeccak.vi` follows
+the ordinary element-group rules described next.
 
-`EGS` still specifies the number and layout of the 64-bit elements in this
-single group. As an instruction-specific exception, `vkeccak.vi` is not
-reserved when `EGS>VLMAX`. This exception is needed because the fixed-width
-group can be larger than the vector length selected by `vtype` and does not
-alter the `EGS<=VLMAX` rule for other vector instructions. Because this single
-group is not strip-mined and does not constrain `vl`, its `EGS` is not included
-when determining `EGSMAX` for the constraints on setting `vl`.
+[[zvknhk-element-groups]]
+==== Element Groups
 
-The fixed-width operand has
-`EMUL=NREG=ceil(EGW/VLEN)`, independent of `LMUL`, where `NREG` is the number of
-consecutive vector registers that hold the group. `vd` designates the
-lowest-numbered register, must be aligned to an `NREG`-register boundary, and
-the group must not extend past `v31`. Thus, `LMUL` neither changes the operand's
-extent nor determines its alignment, and the instruction is defined for every
-otherwise legal `LMUL` setting. The Vector Crypto constraint
-`LMUL*VLEN>=EGW` does not apply. All vector register bits outside the fixed
-group remain unchanged. In particular, if `VLEN>EGW`, the group occupies the
-lowest `EGW` bits of `vd` and the remaining bits of `vd` remain unchanged.
+`vkeccak.vi` operates on a _vector of element groups_, following the element
+group rules of the RISC-V Vector Cryptography extensions. Each element group is
+`EGW=2048` bits wide and holds `EGS=32` 64-bit elements. As for every
+element-group instruction, `vl` selects `vl/EGS` element groups, and the
+instruction processes those from `vstart/EGS` through `vl/EGS - 1`, so that
+after a restart only the remaining element groups are processed. `vl` must be
+set to the number of `SEW=64` elements to be processed and therefore must be a
+multiple of `EGS=32`; likewise `vstart` must be a multiple of `EGS=32`.
+Otherwise the behavior is _reserved_. `EGS=32` counts toward `EGSMAX` for the
+constraints on setting `vl`, as for any other element-group instruction.
 
-The registers in the fixed group are concatenated in increasing register-number
-order using the standard vector element layout. Thus, element `i` is in element
-position `i mod (VLEN/64)` of register
-`vd + floor(i/(VLEN/64))`. At `VLEN=128`, for example, each register contains
-two words and element `i` is held in `v[vd + floor(i/2)]`.
+The `vd` operand is an ordinary vector register group of `LMUL` registers
+(`EMUL=LMUL`), and `vd` must be aligned to `LMUL` as for any vector
+instruction. As for the other element-group instructions, `LMUL*VLEN` must be
+at least as large as `EGW`, otherwise an illegal-instruction exception is
+raised, even if `vl=0`. At `VLEN=256` this requires `LMUL=8`, and the register
+group then holds exactly one element group. At larger `VLEN` a register group
+can hold several element groups, and a single `vkeccak.vi` permutes each
+active element group independently, so that the same code can process, per
+instruction, as many Keccak states as the implementation's vector length
+allows. `VLEN=128`, where no
+register group of `LMUL<=8` can hold an element group, is covered by the
+instruction-specific exception in <<zvknhk-vlen128>>.
 
-At `VLEN=128`, `EMUL=NREG=16`. This is an instruction-specific exception to the
-general `EMUL<=8` maximum of eight registers in one vector register group. This
-exception does not change the `EMUL<=8` rule for any other vector instruction
-or for `vkeccak.vi` at any other `VLEN`.
-
+.Element groups per `VLEN`. The last column assumes `LMUL=8`, `vl=VLMAX` and `vstart=0`.
 [%autowidth]
-[%header,cols="^2,^3,6"]
+[%header,cols="^1,^2,^2,^2"]
 |===
-| `VLEN` | Registers per element group | Valid `vd`
+| `VLEN` | Registers per element group | Minimum `LMUL` | Maximum element groups per instruction
 
-| 128      | 16 | `v0`, `v16`
-| 256      | 8  | `v0`, `v8`, `v16`, `v24`
-| 512      | 4  | `v0`, `v4`, `v8`, ..., `v28`
-| 1024     | 2  | `v0`, `v2`, `v4`, ..., `v30`
-| `>= 2048` | 1 | any `vd`
+| 128  | 16 (fixed, see <<zvknhk-vlen128>>) | - | 1
+| 256  | 8   | 8   | 1
+| 512  | 4   | 4   | 2
+| 1024 | 2   | 2   | 4
+| 2048 | 1   | 1   | 8
+| 4096 | 1/2 | 1 (1/2 where `e64,mf2` is supported) | 16
 |===
 
-Within a group the 25 active state words (`A[x,y]` = element `x + 5y`, for
-`x,y` in `0..4`) are laid out in element order. Bit `z` of that element is
-`A[x,y,z]`, with bit 0 the least-significant bit. Elements 25 through 31 form
-the _state tail_ and remain bit-for-bit unchanged by the instruction. The state
-tail is an instruction-defined tail within the fixed element group; it is not
-the architectural vector tail determined by `vl`, and `vta` does not affect it.
-For example, at `VLEN=256` each register holds four 64-bit words and a group
-starting at `vd=v0` is laid out as:
+Element group `i` consists of elements `32i` through `32i+31` of the `vd`
+register group, laid out according to the standard vector element layout:
+element `e` of the register group is held in element position `e mod (VLEN/64)`
+of register `vd + floor(e/(VLEN/64))`. At `VLEN=128`, for example, each
+register contains two words and element `e` is held in `v[vd + floor(e/2)]`; at
+`VLEN=512` and `LMUL=8`, element group 0 occupies `vd` through `vd+3` and
+element group 1 occupies `vd+4` through `vd+7`.
+
+Within each element group the 25 active state words (`A[x,y]` = element
+`x + 5y` of the group, for `x,y` in `0..4`) are laid out in element order. Bit
+`z` of that element is `A[x,y,z]`, with bit 0 the least-significant bit.
+Elements 25 through 31 of each element group form the _state tail_ and remain
+bit-for-bit unchanged by the instruction. The state tail is an
+instruction-defined part of each element group within the body of the vector;
+it is not the architectural vector tail determined by `vl`, and `vta` does not
+affect it. For example, at `VLEN=256` each register holds four 64-bit words and
+the element group in a register group starting at `vd=v0` is laid out as:
 
 .Keccak state layout for `VLEN=256`, `vd=v0` (four 64-bit elements per register)
 [%autowidth]
@@ -116,11 +117,50 @@ starting at `vd=v0` is laid out as:
 | `v7` | _state tail_ | _state tail_ | _state tail_ | _state tail_
 |===
 
-The permutation is not element-restartable. Executing `vkeccak.vi` with a
-nonzero `vstart` raises an illegal-instruction exception. As for every vector
-instruction, successful completion resets `vstart` to zero. The fixed-group
-update is atomic with respect to traps: a trap must not expose a group with only
-some state elements updated.
+Elements of the `vd` register group at or past `vl` are tail elements and
+follow the tail policy (`vta`) as for any vector instruction; elements before
+`vstart` are unchanged. Because `vl` and `vstart` are multiples of `EGS`, the
+body of the vector always consists of whole element groups. As for any vector
+instruction, if `vstart >= vl` (including `vl=0`) no element groups are
+processed and no destination elements are updated, not even the architectural
+tail elements. Masking is not supported: `vm=0` is reserved.
+
+As for every element-group instruction, the permutation is restartable only at
+element-group boundaries: `vstart` must be a multiple of `EGS`, execution
+resumes with element group `vstart/EGS`, and successful completion resets
+`vstart` to zero. An implementation that suspends `vkeccak.vi` must leave
+`vstart` at an element-group boundary, so that a trap never exposes an element
+group with only some of its state elements updated.
+
+[[zvknhk-vlen128]]
+==== Implementations with `VLEN=128`
+
+At `VLEN=128` no register group of `LMUL<=8` can hold a 2048-bit element group:
+the largest register group, `LMUL=8`, is 1024 bits wide and `VLMAX` is 16
+elements, smaller than `EGS`. So that `Zvknhk` remains implementable at the
+minimum `VLEN` of the application-processor profiles, the following
+instruction-specific exception applies when, and only when, `VLEN=128`:
+
+- `vkeccak.vi` operates on exactly one element group, held in the sixteen
+  consecutive registers `vd` through `vd+15` (`EMUL=16`), independent of
+  `LMUL`. This is an exception to the general `EMUL<=8` limit, to the
+  requirement `LMUL*VLEN>=EGW`, and to the rule that `EGS<=VLMAX`; none of
+  these exceptions apply at any other `VLEN` or to any other instruction.
+- `vd` must be aligned to a 16-register boundary, i.e., `v0` or `v16`; other
+  values of `vd` are reserved.
+- `vl` is not consulted: the instruction behaves as if `vl=32`, including when
+  `vl=0`, and the requirement that `vl` be a multiple of `EGS` does not apply.
+  Because this fixed group is not strip-mined and does not constrain `vl`, its
+  `EGS` is not included when determining `EGSMAX` for the constraints on
+  setting `vl`.
+- The permutation is not restartable: executing `vkeccak.vi` with a nonzero
+  `vstart` raises an illegal-instruction exception. Successful completion
+  resets `vstart` to zero, and the fixed-group update is atomic with respect
+  to traps.
+- Element `e` of the group is held in element position `e mod 2` of register
+  `vd + floor(e/2)`, exactly as the standard layout gives for `VLEN=128`.
+  Elements 25 through 31 are the state tail and remain unchanged, and all
+  registers outside `vd` through `vd+15` are unchanged.
 
 `Zvknhk` defines the following instructions:
 
@@ -164,8 +204,10 @@ Encoding (Vector-Immediate)::
 Reserved Encodings::
 * `SEW` is any value other than 64
 * `imm5` is any value other than `0b00000` (24 rounds) or `0b00001` (12 rounds)
-* `vd` is not aligned to an `NREG`-register boundary, or the fixed group would
-  extend past `v31`
+* `vl` or `vstart` is not a multiple of `EGS=32` (at `VLEN=128` `vl` is not
+  consulted, and a nonzero `vstart` raises an illegal-instruction exception,
+  see <<zvknhk-vlen128>>)
+* `vd` is not aligned to `LMUL` (at `VLEN=128`: `vd` is not `v0` or `v16`)
 * `vm=0`
 
 Arguments::
@@ -180,18 +222,21 @@ Arguments::
 |SEW
 |Definition
 
-| `vd`   | input  | 2048  | 32 | 64 | Keccak state and state tail
+| `vd`   | input  | 2048  | 32 | 64 | Keccak states, one per element group, and state tails
 | `imm5` | input  | -     | -  | - | Round-count selector (see Description)
-| `vd`   | output | 2048  | 32 | 64 | Permuted Keccak state and unchanged state tail
+| `vd`   | output | 2048  | 32 | 64 | Permuted Keccak states and unchanged state tails
 |===
 
 Description::
 
-The instruction applies the Keccak-_p_[1600] permutation to the 1600-bit Keccak
-state held in elements 0 through 24 of the single fixed element group designated
-by `vd`, and writes the result back to those same elements. Elements 25 through
-31 are not read by the permutation and remain unchanged. The number of
-permutation rounds is selected by the 5-bit immediate `imm5`:
+Except at `VLEN=128`, as specified in <<zvknhk-vlen128>>, the instruction
+applies the Keccak-_p_[1600] permutation independently to each element group
+`vstart/EGS` through `vl/EGS - 1` of the `vd` register group.
+Within each element group the 1600-bit Keccak state is held in elements 0
+through 24, and the result is written back to those same elements. Elements 25
+through 31 are not read by the permutation and remain unchanged. Every element
+group is permuted with the same number of rounds, selected by the 5-bit
+immediate `imm5`:
 
 [%autowidth]
 [%header,cols="^2,^2,5"]
@@ -212,15 +257,28 @@ This is the same selection as Keccak-_p_[1600,12] used by TurboSHAKE
 as specified in RFC 9861 cite:[IETF:RFC9861], which tabulates these twelve
 constants re-indexed `0` through `11`.
 
+An illegal-instruction exception is raised if `LMUL*VLEN < EGW`, even when
+`vl=0`, except at `VLEN=128`, where the exception of <<zvknhk-vlen128>>
+applies instead.
+
 
 Operation::
 
-The Sail code below uses `get_fixed_eg(vd)` to read the one fixed element
-group described above, independent of `vl` and `LMUL`.
-`set_fixed_eg_elem(vd, i, value)` writes only element `i` of that group.
-These are model primitives for the instruction-specific fixed register group.
 The operator `x <<< n` rotates the 64-bit word `x` left by `n` bit positions.
+`get_fixed_eg(vd)` and `set_fixed_eg_elem(vd, i, value)` are model primitives
+that read a fixed register group and write one element of it.
 
+[NOTE]
+====
+The Sail listing below is *outdated and non-normative*. It still implements
+the previous definition, in which `vd` was a single fixed element group
+independent of `vl` and `LMUL`; where the listing and this chapter disagree,
+the prose of this chapter takes precedence. The model needs to be updated to
+iterate over element groups `vstart/EGS` through `vl/EGS - 1` of the `vd`
+register group, with the `VLEN=128` exception of <<zvknhk-vlen128>>.
+====
+
+.Sail model (outdated, non-normative; see the note above)
 [source,sail]
 --
 include::../zvknhk/sail/zvknhk_insts.sail[tag=operation]
