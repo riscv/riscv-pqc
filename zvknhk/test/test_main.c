@@ -17,6 +17,7 @@ void hex(const char *lab, const void *dat, size_t len)
 
 int test_sha3();
 int test_turbo();
+int test_groups();
 int rij256_test();
 
 int main()
@@ -48,6 +49,7 @@ int main()
 
     fail += test_sha3();
     fail += test_turbo();
+    fail += test_groups();
 
     printf("[INFO] fail= %d\n", fail);
 

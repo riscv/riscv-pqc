@@ -13,7 +13,7 @@
 #   make patch-spike  — Patch the Zvknhk instruction into the upstream Spike sources
 #   make unpatch-spike— Restore the Spike sources to pristine upstream
 #   make test         — Build and run the instruction tests under the built Spike
-#   make test-all     — Run the tests at every VLEN the spec tabulates (128..2048)
+#   make test-all     — Run the tests at every VLEN the spec tabulates (128..4096)
 #   make qemu         — Build QEMU (qemu-src) with the Zvknhk instruction
 #   make patch-qemu   — Patch the Zvknhk instruction into the upstream QEMU sources
 #   make unpatch-qemu — Restore the QEMU sources to pristine upstream
@@ -116,9 +116,8 @@ spike: patch-spike
 test: spike
 	$(MAKE) -C $(TEST_DIR) run SPIKE=$(abspath $(SPIKE_BIN))
 
-# The fixed element group spans NREG=ceil(2048/VLEN) registers, so the number
-# of registers it occupies -- and which vd are legal -- changes with VLEN.
-# This runs the whole suite at each VLEN the specification tabulates.
+# Group capacity and the VLEN=128 exception vary with VLEN. Run the suite at
+# every VLEN tabulated in the specification.
 test-all: spike
 	$(MAKE) -C $(TEST_DIR) run-all SPIKE=$(abspath $(SPIKE_BIN))
 

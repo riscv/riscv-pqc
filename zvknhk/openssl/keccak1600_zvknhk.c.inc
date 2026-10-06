@@ -33,7 +33,7 @@
  *
  *  STATE LAYOUT.  KECCAK1600_CTX.A is uint64_t[5][5] and SHA3_absorb() already
  *  treats it as flat (`A_flat = (uint64_t *)A`), so lane i is at byte offset
- *  8*i.  That is exactly the element order zvknhk.adoc defines for the fixed
+ *  8*i.  That is the element order zvknhk.adoc defines for a 2048-bit
  *  element group -- registers concatenated in increasing register-number order
  *  using the standard element layout -- so the state needs no marshalling.
  *
@@ -69,9 +69,10 @@
  *  12-round form exists for TurboSHAKE/KangarooTwelve, which OpenSSL has no
  *  consumer for.
  *
- *  vd = v0 is an NREG-aligned group start at every VLEN.  vl and LMUL matter
- *  only to the surrounding vle64/vse64 that move the 25 live state words: at
- *  LMUL=8 the largest usable vl is VLMAX = 8*VLEN/64, which is >= 25 for
+ *  vd = v0 is a valid group start at every VLEN. At VLEN>=256, LMUL=8 and
+ *  vl=32 select one element group for the permutation; vl=25 is used for
+ *  the surrounding vle64/vse64 that move the live words. At LMUL=8 VLMAX
+ *  is 8*VLEN/64, which is >= 25 for
  *  VLEN >= 256 but only 16 at VLEN = 128, so there the transfer is split in
  *  two.  Both halves stay inside the 16-register group that vd=v0 spans.
  *
@@ -91,7 +92,7 @@
  */
 
 #define VKECCAK_CLOBBERS                                        \
-    "memory", "vl", "vtype",                                    \
+    "memory", "vl", "vtype", "t0",                              \
     "v0", "v1", "v2",  "v3",  "v4",  "v5",  "v6",  "v7",        \
     "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15"
 static void KeccakF1600_zvknhk(uint64_t A[5][5], size_t vlen)
@@ -106,7 +107,10 @@ static void KeccakF1600_zvknhk(uint64_t A[5][5], size_t vlen)
             "vle64.v  v0, 0(%[s])\n"
             /*  vkeccak.vi v0, 0                                  */
             /*  .insn r opc, func3, func7, rd, rs1, rs2           */
+            "li t0, 32\n"
+            "vsetvli x0, t0, e64, m8, tu, mu\n"
             ".insn r 0x77, 0x2, 0x53, x0, x18, x0\n"
+            "vsetivli x0, 25, e64, m8, tu, mu\n"
             "vse64.v  v0, 0(%[s])\n"
             ".option pop\n"
             :

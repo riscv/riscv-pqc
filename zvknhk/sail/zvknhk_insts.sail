@@ -3,7 +3,8 @@
 //
 // Operation listing for vkeccak.vi, included by src/zvknhk.adoc.
 // Requires the RISC-V Sail prelude, instruction/execute declarations,
-// vregidx, ExecutionResult, vstart, set_vstart, and the fixed-group helpers.
+// vregidx, ExecutionResult, get_sew(), get_lmul_pow(), vl, vstart, VLEN,
+// and element accessors.
 // The standalone definitions in tests/ are test scaffolding only.
 
 // tag::operation[]
@@ -92,23 +93,41 @@ function keccak_p(input : keccak_state,
 union clause instruction = VKECCAK_VI : (bits(5), vregidx)
 
 function clause execute VKECCAK_VI(imm5, vd) = {
-  if unsigned(vstart) != 0 then return Illegal_Instruction();
-
+  if get_sew() != 64 then return Illegal_Instruction();
   let first_round : {0, 12} = match imm5 {
     0b00000 => 0,
     0b00001 => 12,
     _       => return Illegal_Instruction()
   };
-
-  let group = get_fixed_eg(vd);
-  var state : keccak_state = vector_init(zeros());
-  foreach (i from 0 to 24) {
-    state[i] = group[i]
+  let vd_num = unsigned(vregidx_bits(vd));
+  let LMUL_pow = get_lmul_pow();
+  let LMUL_times_VLEN = if LMUL_pow < 0 then
+    ediv_int(VLEN, 2 ^ abs_int(LMUL_pow)) else (2 ^ LMUL_pow) * VLEN;
+  let small_vlen = VLEN == 128;
+  if small_vlen then {
+    if vd_num % 16 != 0 then return Illegal_Instruction();
+    if unsigned(vstart) != 0 then return Illegal_Instruction()
+  } else {
+    if LMUL_times_VLEN < 2048 then return Illegal_Instruction();
+    if LMUL_pow > 0 then {
+      if vd_num % (2 ^ LMUL_pow) != 0 then
+        return Illegal_Instruction()
+    };
+    if unsigned(vl) % 32 != 0 then return Illegal_Instruction();
+    if unsigned(vstart) % 32 != 0 then return Illegal_Instruction()
   };
 
-  state = keccak_p(state, first_round);
-  foreach (i from 0 to 24) {
-    set_fixed_eg_elem(vd, i, state[i])
+  let first_group = if small_vlen then 0 else ediv_int(unsigned(vstart), 32);
+  let group_count = if small_vlen then 1 else ediv_int(unsigned(vl), 32);
+  foreach (g from first_group to group_count - 1) {
+    var state : keccak_state = vector_init(zeros());
+    foreach (i from 0 to 24) {
+      state[i] = get_eg_elem(vd, 32 * g + i)
+    };
+    state = keccak_p(state, first_round);
+    foreach (i from 0 to 24) {
+      set_eg_elem(vd, 32 * g + i, state[i])
+    }
   };
 
   set_vstart(zeros());

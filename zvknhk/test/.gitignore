@@ -1,6 +1,7 @@
 # project specific
 xtest
 xtest-dyn
+edge_probe[0-9]*
 xmldsa
 xmlkem
 *.run

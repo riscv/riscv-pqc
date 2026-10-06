@@ -14,28 +14,9 @@
  * is character-for-character the one in spike/vkeccak_vi.h, so the two
  * reference implementations cannot drift apart.
  *
- * Points where this deliberately differs from an ordinary vector-crypto
- * helper, and why none of QEMU's vext scaffolding is used:
- *
- *   - The state is ONE fixed element group designated by 'vd', with
- *     EMUL = NREG = ceil(EGW/VLEN), independent of vl and LMUL. It is not
- *     strip-mined, so there is no loop over element groups, no
- *     vext_get_total_elems()/vext_vta() tail handling, and no
- *     VSTART_CHECK_EARLY_EXIT() -- that macro treats vstart >= vl as a
- *     completed instruction, which is wrong for an operation that ignores vl.
- *   - QEMU lays the vector register file out as one flat, contiguous byte
- *     array, so element i of the group is simply vd[i]: byte offset i*8 lands
- *     in register vd + floor(i*8/vlenb) at element position i mod (vlenb/8),
- *     which is exactly the layout the specification defines for the
- *     concatenated registers. Nothing here needs to know NREG.
- *   - Elements 25..31 (the state tail) and every bit outside the fixed group
- *     are simply never written. The state tail is not the architectural
- *     vector tail, so vta does not apply to it.
- *
- * The reserved encodings that are static in vtype -- SEW != 64, a reserved
- * imm5, a misaligned or out-of-range vd -- are rejected at translation time
- * in trans_vkeccak_vi.c.inc; vm=0 simply does not match the decode pattern.
- * Only vstart is dynamic, so only vstart is checked here.
+ * The helper walks 32-word element groups from vstart to vl, except at
+ * VLEN=128 where the instruction uses one fixed group and ignores vl.
+ * Elements 25..31 in each group are preserved.
  */
 
 #define KECCAK_ROL(data, amt)  (((data) << (amt)) | ((data) >> (64 - (amt))))
@@ -61,12 +42,21 @@ void HELPER(vkeccak_vi)(void *vd_vptr, CPURISCVState *env, uint32_t imm5)
     uint64_t *vd = vd_vptr;
     uint32_t roundCnt, rc_offset;
 
-    /*
-     * The permutation is not element-restartable: a nonzero vstart is an
-     * illegal instruction rather than a resumption point.
-     */
-    if (env->vstart != 0) {
-        riscv_raise_exception(env, RISCV_EXCP_ILLEGAL_INST, GETPC());
+    const bool fixed_group = (imm5 & 0x100) != 0;
+    uint32_t first_group, group_count;
+
+    if (fixed_group) {
+        if (env->vstart != 0) {
+            riscv_raise_exception(env, RISCV_EXCP_ILLEGAL_INST, GETPC());
+        }
+        first_group = 0;
+        group_count = 1;
+    } else {
+        if (env->vl % 32 != 0 || env->vstart % 32 != 0) {
+            riscv_raise_exception(env, RISCV_EXCP_ILLEGAL_INST, GETPC());
+        }
+        first_group = env->vstart / 32;
+        group_count = env->vl / 32;
     }
 
     /*
@@ -75,15 +65,12 @@ void HELPER(vkeccak_vi)(void *vd_vptr, CPURISCVState *env, uint32_t imm5)
      * RC[24 - roundCnt] .. RC[23]. Every other imm5 is reserved and was
      * already rejected at translation time.
      */
-    roundCnt = (imm5 == 0) ? 24 : 12;
+    roundCnt = ((imm5 & 0x1f) == 0) ? 24 : 12;
     rc_offset = 24 - roundCnt;
 
-    /*
-     * Read the 25 active state words of the fixed group. H8() is the identity
-     * on both host endiannesses; it is spelled out for consistency with the
-     * rest of the vector helpers.
-     */
-#define VKECCAK_A(x, y) (vd[H8((x) + 5 * (y))])
+    for (uint32_t group = first_group; group < group_count; ++group) {
+    uint32_t base = group * 32;
+#define VKECCAK_A(x, y) (vd[H8(base + (x) + 5 * (y))])
 
     uint64_t A_0_0 = VKECCAK_A(0, 0);
     uint64_t A_0_1 = VKECCAK_A(0, 1);
@@ -284,9 +271,9 @@ void HELPER(vkeccak_vi)(void *vd_vptr, CPURISCVState *env, uint32_t imm5)
     VKECCAK_A(4, 3) = A_4_3;
     VKECCAK_A(4, 4) = A_4_4;
 
-    env->vstart = 0;
-
 #undef VKECCAK_A
+    }
+    env->vstart = 0;
 }
 
 #undef KECCAK_ROL

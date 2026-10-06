@@ -9,7 +9,8 @@ the same source. Building the document does not require the Sail compiler.
 
 The `*_insts.sail` name follows the
 [vector-crypto instruction files in sail-riscv](https://github.com/riscv/sail-riscv/tree/master/model/extensions/vector_crypto).
-The [ISA manual's vector-crypto chapter](https://github.com/riscv/riscv-isa-manual/blob/main/src/unpriv/zvk.adoc)
+The [ratified ISA manual's Vector Cryptography chapter
+(v20260120)](https://docs.riscv.org/reference/isa/v20260120/unpriv/vector-crypto.html)
 uses `[source,sail]` listings and refers to that separate formal model.
 For integration into the manual, the operation can be included from a relocated
 file or embedded in the chapter without any test code or custom build tools.
@@ -35,36 +36,18 @@ directory; `make -C zvknhk/sail clean` removes them.
 
 ## Source and test boundary
 
-- `zvknhk_insts.sail`: Keccak round constants, rho/pi recurrence, permutation,
-  instruction constructor, and execution clause. This is the code to carry
-  into the specification and formal model.
-- `tests/prelude.sail`: a small standalone implementation of the prelude
-  interfaces used by the listing, backed by Sail's installed libraries.
-- `tests/model.sail`: test-only instruction/retirement types, `vstart`,
-  and one logical fixed group at `vd=v0`.
-- `tests/test_vkeccak.sail`: 24- and 12-round all-zero known-answer tests
-  for all 25 words, preservation of all seven state-tail words, all 30
-  reserved immediates, and nonzero `vstart` for both round counts.
-  Illegal-instruction cases check that the whole group and `vstart`
-  remain unchanged. Expected permutation outputs are also used by
-  [the system-mode test](../test/system/boot.c).
+- `zvknhk_insts.sail` defines the Keccak permutation and iterates over active
+  32-word element groups. `get_lmul_pow()` supplies the signed LMUL exponent.
+- `tests/model.sail` provides a standalone vector register file, `VLEN`,
+  `get_sew()`, `get_lmul_pow()`, `vl`, `vstart`, and element accessors.
+- `tests/test_vkeccak.sail` checks both round counts, independent groups,
+  state tails, restart at group boundaries, `vl=0`, reserved immediates,
+  and the `VLEN=128` exception.
 
-The operation expects the surrounding RISC-V model to provide `instruction`,
-`execute`, `vregidx`, `ExecutionResult`, `RETIRE_SUCCESS`, `vstart`, and
-`set_vstart`, plus these instruction-specific interfaces:
-
-```sail
-val get_fixed_eg : vregidx -> vector(32, bits(64))
-val set_fixed_eg_elem : (vregidx, range(0, 24), bits(64)) -> unit
-```
-
-The test environment represents a logical group, not a full vector register
-file or decoder. Integration into `sail-riscv` still needs extension
-registration, encoding/assembly mappings, the remaining legality checks
-(`SEW`, `vm`, vector state, and group alignment), and fixed-group accessors
-implementing the specified `VLEN` layout independently of `vl` and `LMUL`.
-The tests here do not establish those properties; the simulator tests in
-[`../test/`](../test/README.md) exercise the implemented instruction.
+The surrounding RISC-V model must supply vector state, the instruction and
+execute declarations, and `get_eg_elem`/`set_eg_elem` accessors using standard
+vector element layout. The execution listing checks `SEW=64`; decoder checks
+for `vm` and vector availability remain part of integration into `sail-riscv`.
 
 The Sail source and tests use the BSD-3-Clause license in
 [`../LICENSE`](../LICENSE).

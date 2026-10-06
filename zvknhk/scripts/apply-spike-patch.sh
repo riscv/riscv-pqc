@@ -14,9 +14,8 @@ set -euo pipefail
 #      EXT_ZVKNHK extension id, its ISA-string name ("zvknhk"), the encoding, the
 #      build-system entry, and the disassembler entry.
 #
-# The instruction body is self-contained: because zvknhk.adoc defines the state
-# as a single fixed element group that is not strip-mined, the implementation
-# needs neither the Zvk element-group loop macros nor a new element-group type,
+# The instruction body is self-contained: it loops over ordinary element
+# groups and handles the VLEN=128 exception directly. It needs no new group type,
 # so riscv/vector_unit.h, riscv/zvk_ext_macros.h and riscv/zvkned_ext_macros.h
 # are left untouched.
 #

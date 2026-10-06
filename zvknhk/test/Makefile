@@ -16,9 +16,9 @@ CC		=	riscv64-unknown-linux-gnu-gcc
 RVKISA	=	rv64gcv_zvl128b
 
 #	Runtime VLEN for the simulator. zvknhk.adoc tabulates 128, 256, 512,
-#	1024 and >=2048; `make run-all` sweeps them.
+#	1024 and >=2048; `make run-all` sweeps through 4096.
 VLEN	?=	256
-VLENS	=	128 256 512 1024 2048
+VLENS	=	128 256 512 1024 2048 4096
 
 #	Spike built by `make spike` in zvknhk/; override to use another build.
 SPIKE	?=	../riscv-isa-sim/build/spike
@@ -47,10 +47,12 @@ SYSROOT	?=	$(RISCV)/sysroot
 
 CFLAGS	=	-march=$(RVKISA) -mabi=lp64d -Wall
 LDFLAGS	=	-static --sysroot=$(SYSROOT)
-CSRC	= 	$(wildcard *.c)
+CSRC	= 	$(filter-out edge_probe.c,$(wildcard *.c))
 SSRC	= 	$(wildcard *.s *.S)
 OBJS	=	$(CSRC:.c=.o) $(SSRC:.s=.o)
 LDLIBS	=
+EDGE_CASES =	0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
+EDGE_BINS =	$(addprefix edge_probe,$(EDGE_CASES))
 
 run:	$(XBIN)
 	$(SPIKE) $(SPIKEFL) $(PK) $(XBIN)
@@ -65,7 +67,7 @@ run:	$(XBIN)
 #
 #	The simulator output is captured rather than piped, so that $$? is the
 #	simulator's status and not some filter's.
-run-all: $(XBIN)
+run-all: $(XBIN) $(EDGE_BINS)
 	@rc=0; \
 	for v in $(VLENS); do \
 		out=`$(SPIKE) --isa=rv64gcv_zvl$${v}b_zvknhk_zicntr_zihpm $(PK) $(XBIN) 2>&1`; \
@@ -85,6 +87,7 @@ run-all: $(XBIN)
 			echo "VLEN=$$v ok: $$ran vectors"; \
 		fi; \
 	done; \
+	if ! ./run_edge_cases.sh spike "$(SPIKE)" "$(PK)" "$(VLENS)"; then rc=1; fi; \
 	[ $$rc -eq 0 ] || echo "run-all: FAILED"; \
 	exit $$rc
 
@@ -95,7 +98,7 @@ run-qemu: $(XBIN)
 #	The VLEN sweep under QEMU. Same four checks as run-all: that the emulator
 #	exited cleanly, that it really ran at the VLEN we asked for, that no vector
 #	reported a failure, and that vectors actually ran at all.
-run-qemu-all: $(XBIN)
+run-qemu-all: $(XBIN) $(EDGE_BINS)
 	@rc=0; \
 	for v in $(QEMUVLENS); do \
 		out=`$(QEMU) -L $(QEMU_SYSROOT) \
@@ -117,11 +120,25 @@ run-qemu-all: $(XBIN)
 			echo "VLEN=$$v ok: $$ran vectors"; \
 		fi; \
 	done; \
+	out=`$(QEMU) -L $(QEMU_SYSROOT) \
+		-cpu rv64,v=true,vlen=512,elen=64,zvknhk=true,rvv_vl_half_avl=true,zicntr=true,zihpm=true \
+		$(XBIN) 2>&1`; \
+	st=$$?; \
+	bad=`printf '%s\n' "$$out" | sed -n 's/^\[INFO\] fail= *//p'`; \
+	if [ $$st -ne 0 ] || [ "$$bad" != "0" ]; then \
+		echo "VLEN=512 half-AVL FAIL: exit=$$st fail=$${bad:-unknown}"; rc=1; \
+	else \
+		echo "VLEN=512 half-AVL ok: EGSMAX=32"; \
+	fi; \
+	if ! ./run_edge_cases.sh qemu "$(QEMU)" - "$(QEMUVLENS)"; then rc=1; fi; \
 	[ $$rc -eq 0 ] || echo "run-qemu-all: FAILED"; \
 	exit $$rc
 
 $(XBIN): $(OBJS) Makefile
 	$(CC) $(LDFLAGS) $(CFLAGS) -o $(XBIN) $(OBJS) $(LDLIBS)
+
+$(EDGE_BINS): edge_probe%: edge_probe.c Makefile
+	$(CC) $(LDFLAGS) $(CFLAGS) -DCASE=$* -o $@ $<
 
 #	A dynamically linked build of the same suite. Spike's proxy kernel runs
 #	static binaries only, so this one exists for QEMU user-mode emulation,
@@ -137,4 +154,4 @@ run-qemu-dyn: $(XBIN)-dyn
 
 #	Cleanup
 clean:
-	$(RM) -f $(XBIN) $(OBJS)
+	$(RM) -f $(XBIN) $(OBJS) $(EDGE_BINS)

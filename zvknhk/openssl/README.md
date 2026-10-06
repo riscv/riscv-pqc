@@ -158,13 +158,14 @@ matching the `Zvl128b` requirement in `zvknhk.adoc`.
 `KECCAK1600_CTX.A` is `uint64_t[5][5]`, and `SHA3_absorb()` already treats it
 as flat — `A_flat = (uint64_t *)A` — so lane `i` sits at byte offset `8*i`.
 
-That is exactly the order `zvknhk.adoc` defines for the fixed element group:
+That is exactly the order `zvknhk.adoc` defines for each 2048-bit element group:
 registers concatenated in increasing register-number order using the standard
 element layout. The state therefore needs no marshalling at all; `vle64.v`
 from `&A[0][0]` lands each lane where the instruction expects it.
 
-`vl` and `LMUL` matter only to the surrounding `vle64`/`vse64` that move the
-25 live words. At `LMUL=8` the largest usable `vl` is `VLMAX = 8*VLEN/64`,
+`vl=25` is used to load and store the 25 live words; at `VLEN>=256`,
+`vl=32` selects one group for the permutation. At `LMUL=8`, the largest
+usable `vl` is `VLMAX = 8*VLEN/64`,
 which is at least 25 for `VLEN >= 256` but only 16 at `VLEN = 128` — so there
 the transfer is split in two, elements 0..15 into `v0`..`v7` and 16..24 into
 `v8`..`v12`. Both halves stay inside the 16-register group that `vd=v0` spans

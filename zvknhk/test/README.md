@@ -50,24 +50,25 @@ has to appear in the ISA string. The Makefile builds one from `VLEN`:
 
 ### VLEN configurations
 
-The fixed element group is `EGW=2048` bits, so it spans
-`NREG = ceil(2048/VLEN)` registers and `vd` must be `NREG`-aligned. Both the
-number of registers and the set of legal `vd` therefore change with `VLEN`
-(`zvknhk.adoc`):
+At `VLEN=128`, the instruction uses a fixed 16-register group (`v0` or
+`v16`) and ignores `vl`. At larger VLEN, `vd` is an ordinary `LMUL` register
+group; it must hold at least one 2048-bit element group. Larger register groups
+can hold several states, each processed independently.
 
-| `VLEN` | `NREG` | Valid `vd` |
-|---|---|---|
-| 128 | 16 | `v0`, `v16` |
-| 256 | 8 | `v0`, `v8`, `v16`, `v24` |
-| 512 | 4 | `v0`, `v4`, ..., `v28` |
-| 1024 | 2 | `v0`, `v2`, ..., `v30` |
-| >= 2048 | 1 | any `vd` |
+| `VLEN` | Minimum `LMUL` | Groups at `LMUL=8`, `vl=VLMAX` |
+|---|---:|---:|
+| 128 | fixed 16 registers | 1 |
+| 256 | 8 | 1 |
+| 512 | 4 | 2 |
+| 1024 | 2 | 4 |
+| 2048 | 1 | 8 |
+| 4096 | 1 (1/2 where `e64,mf2` is supported) | 16 |
 
 The tests run at all of these. Pick one with `VLEN=`, or sweep them all:
 
 ```bash
 make run VLEN=512     # a single configuration
-make run-all          # 128, 256, 512, 1024, 2048
+make run-all          # 128, 256, 512, 1024, 2048, 4096
 ```
 
 `run-all` reports one line per configuration and fails the build if any of them
@@ -78,10 +79,22 @@ actually ran — the last so that an empty or truncated run cannot pass
 silently:
 
 ```
-VLEN=128 ok: 39 vectors
+VLEN=128 ok: 40 vectors
 VLEN=256 ok: 39 vectors
+VLEN=512 ok: 41 vectors
 ...
 ```
+
+The sweep also builds `edge_probe0` through `edge_probe19` from
+`edge_probe.c` and runs each case in a separate process. `run_edge_cases.sh`
+checks the expected illegal-instruction exit and message, or the complete
+register image and reset `vstart` for legal cases. The cases cover reserved
+SEW, `vill`, `vm`, immediates and alignment; group width and restart rules;
+`vl=0`, `vstart>=vl`, state tails, and the fixed group at `VLEN=128`.
+At `VLEN=128` and `VLEN=4096`, `e64,mf2` may be supported or set `vill`, so
+case 18 accepts either result while checking the full state if it executes.
+The edge cases still run if the main vector sweep reports a failure; the target
+then exits with a failing status.
 
 `make test-all` in `zvknhk/` does the same thing, building Spike
 first if needed.
@@ -90,15 +103,15 @@ The binary is compiled for `rv64gcv_zvl128b` — the smallest supported `VLEN`,
 so that one binary is valid at every configuration — and the simulator is then
 told the actual `VLEN` at run time.
 
-Two details make `keccak_insn.c` VLEN-generic:
-
-- It uses `vd=v0`, which is an `NREG`-aligned group start at every `VLEN`.
-- The instruction ignores `vl`, but the surrounding `vle64.v`/`vse64.v` that
-  move the 25 active state words do not. At `LMUL=8` the largest usable `vl`
-  is `VLMAX = 8*VLEN/64`, which is comfortably above 25 for `VLEN >= 256` but
-  only 16 at `VLEN=128`. There the transfer is split in two — elements 0..15
-  into `v0..v7`, then 16..24 into `v8..v12` — both halves landing inside the
-  16-register group that `v0` spans at that `VLEN`.
+`keccak_insn.c` uses `vd=v0`, which is valid at every VLEN. At
+`VLEN>=256` it loads 25 state words with `vl=25`, sets `vl=32` for one active
+element group, then restores `vl=25` to store the result. At `VLEN=128`, the
+load and store split across `v0..v7` and `v8..v15`, and the permutation
+ignores `vl`. `test_groups.c` checks two independent states, restart at
+`vstart=32`, `vl=0`, and the minimum legal LMUL when `VLEN>=512`. It checks
+the fixed group at `v16` when `VLEN=128`. At `VLEN=512` it also checks that
+`vsetvl` with AVL=96 chooses `vl=64`, respecting `EGSMAX=32`. At `VLEN=4096`
+it checks two groups in one `LMUL=1` register.
 
 ##  What is tested
 
@@ -148,22 +161,17 @@ The assembler does not know `vkeccak.vi` yet, so `keccak_insn.c` emits it with
     __asm volatile (
         "vsetivli x0, 25, e64, m8, tu, mu\n"
         "vle64.v v0, 0(%[s])\n"
-        //  vkeccak.vi v0, 0   -- imm5 = 0 selects 24 rounds (Keccak-f[1600])
-        //  .insn r opc, func3, func7, rd, rs1, rs2
+        "li t0, 32\n"
+        "vsetvli x0, t0, e64, m8, tu, mu\n"
         ".insn r 0x77, 0x2, 0x53, x0, x18, x0\n"
+        "vsetivli x0, 25, e64, m8, tu, mu\n"
         "vse64.v v0, 0(%[s])\n"
-        :
-        : [s]"r"(state)
-        : "memory"
+        : : [s]"r"(state) : "memory", "t0"
     );
 ```
 
-That is the `VLEN >= 256` arm of the `KECCAK_INSN` macro; the `VLEN = 128` arm
-splits the transfer in two, as described above. The 25 state lanes are loaded
-into `v0`, the permutation runs in place, and the lanes are stored back. The
-state is a single fixed element group of `EGW=2048` bits designated by `vd`,
-independent of `vl` and `LMUL`, so `vl` only has to be large enough for the
-surrounding `vle64.v` / `vse64.v` of the 25 active words.
+The load and store touch only the 25 live state words. The permutation sees
+one complete 32-element group; its seven state-tail words remain unchanged.
 
 Reading the operands of that `.insn` needs care, because only two of the five
 R-type fields are actually operands:
@@ -183,9 +191,10 @@ for each of the two defined values:
 | `0b00000` | 24 | Keccak-_p_[1600,24] = Keccak-_f_[1600] — SHA-3, SHAKE |
 | `0b00001` | 12 | Keccak-_p_[1600,12] — TurboSHAKE, KangarooTwelve |
 
-All other values are reserved and raise an illegal-instruction exception, as do
-`SEW != 64`, `vm=0`, a nonzero `vstart`, and a `vd` that is not aligned to an
-`NREG`-register boundary.
+All other values are reserved; these reference simulators reject them with an
+illegal-instruction exception, as they do
+`SEW != 64`, `vm=0`, misaligned `vl` or `vstart`, and an invalid `vd`
+alignment. At `VLEN=128`, nonzero `vstart` is illegal and `vl` is ignored.
 
 `keccak_f1600()` uses `imm5 = 0` and `keccak_p1600_12()` uses `imm5 = 1`; both
 are covered by the vectors above.
@@ -231,7 +240,8 @@ without `zvknhk` — the run traps on an illegal instruction instead of printing
 
 | File | |
 |---|---|
-| `keccak_insn.c` | the `vkeccak.vi` wrappers — the only file using the instruction |
+| `keccak_insn.c` | the `vkeccak.vi` wrappers used by the sponge tests |
+| `test_groups.c` | element-group, restart, and minimum-LMUL tests |
 | `sha3_api.c`, `sha3_api.h` | SHA-3 / SHAKE built on `keccak_f1600()` |
 | `turbo_api.c`, `turbo_api.h` | TurboSHAKE built on `keccak_p1600_12()` |
 | `test_sha3.c` | FIPS 202 known-answer vectors |
@@ -249,8 +259,8 @@ The SHA-3 and SHAKE sponge code in `sha3_api.c` and the test scaffolding
 exist to exercise the instruction, not to be fast. `turbo_api.c` follows the
 same shape for TurboSHAKE.
 
-`keccak_insn.c` is the only file that emits `vkeccak.vi`; the sponges, the
-vectors and the scaffolding above it are portable C. That is what makes the
+`keccak_insn.c` and `test_groups.c` emit `vkeccak.vi`; the sponges, the
+vectors and the scaffolding above them are portable C. That is what makes the
 `KECCAK-P` / `KECCAK-P12` checks useful: if those pass but the SHA-3 or
 TurboSHAKE vectors fail, the fault is in the padding code rather than in the
 instruction.

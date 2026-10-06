@@ -15,12 +15,12 @@
 //      rs1 = x18   -- NOT an operand: 0b10010 is a fixed part of the opcode
 //      rs2 = imm5  -- the round-count selector: 0 -> 24 rounds, 1 -> 12 rounds
 //
-//  The state is one fixed element group of EGW=2048 bits designated by vd,
-//  spanning NREG = ceil(2048/VLEN) registers, independent of vl and LMUL.
-//  We use vd=v0, which is an NREG-aligned group start at every VLEN.
+//  At VLEN>=256 the instruction uses ordinary LMUL groups. We use LMUL=8,
+//  vd=v0 and vl=32 for exactly one 2048-bit element group. At VLEN=128 it
+//  uses the fixed 16-register group and ignores vl.
 //
-//  vl matters only for the surrounding vle64/vse64 that move the 25 active
-//  state words. At LMUL=8 the largest usable vl is VLMAX = 8*VLEN/64, which
+//  The surrounding vle64/vse64 move only the 25 active state words. At
+//  LMUL=8 the largest usable vl is VLMAX = 8*VLEN/64, which
 //  is >= 25 for VLEN >= 256 but only 16 at VLEN=128 -- so there the transfer
 //  is split in two: elements 0..15 into v0..v7, then 16..24 into v8..v12.
 //  Both halves stay inside the 16-register group that vd=v0 spans at VLEN=128.
@@ -34,11 +34,14 @@ void name(void *state)                                              \
             "vle64.v v0, 0(%[s])\n"                                 \
             /*  vkeccak.vi v0, imm5                              */  \
             /*  .insn r opc, func3, func7, rd, rs1, rs2          */  \
+            "li t0, 32\n"                                          \
+            "vsetvli x0, t0, e64, m8, tu, mu\n"                    \
             ".insn r 0x77, 0x2, 0x53, x0, x18, " imm5 "\n"          \
+            "vsetivli x0, 25, e64, m8, tu, mu\n"                    \
             "vse64.v v0, 0(%[s])\n"                                 \
             :                                                       \
             : [s]"r"(state)                                         \
-            : "memory"                                              \
+            : "memory", "t0"                                        \
         );                                                          \
     } else {                            /*  VLEN == 128  */         \
         void *hi = (void *) ((char *) state + 16 * 8);              \

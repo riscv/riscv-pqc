@@ -41,7 +41,7 @@ static const u64 exp12[25] = {
     0xCFFD0D76222CA01CULL
 };
 
-//  The 32 elements of the fixed group: 25 state words plus the state tail.
+//  One 32-element group: 25 state words plus the state tail.
 static u64 buf[32];
 
 static void uart_puts(const char *s)

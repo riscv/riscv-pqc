@@ -54,9 +54,8 @@ KATS = \
 test:
 	@$(MAKE) --no-print-directory check VLEN=$(VLEN)
 
-#	The whole point of the sweep: NREG = ceil(2048/VLEN) changes how many
-#	registers the state occupies, and at VLEN=128 the transfer has to be split
-#	in two. Both paths through KeccakF1600_zvknhk() need exercising.
+#	The sweep checks both OpenSSL paths: at VLEN=128 the transfer is split
+#	across 16 registers; at larger VLEN one ordinary LMUL=8 group is used.
 test-all: pqcbench
 	@rc=0; \
 	for v in $(VLENS); do \

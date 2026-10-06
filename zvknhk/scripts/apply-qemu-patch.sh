@@ -17,10 +17,9 @@ set -euo pipefail
 #      the implied-extension rule, and the TCG validation.
 #
 # The two .c.inc files hold everything specific to the instruction; the glue
-# below is seven small insertions. Nothing in QEMU's strip-mining scaffolding
-# (vector_internals.h, the GEN_*_UNMASKED_TRANS macros) is touched, for the
-# same reason as in Spike: zvknhk.adoc defines the state as a single fixed
-# element group that is not strip-mined.
+# below is a set of small insertions. The helper handles ordinary element
+# groups and the VLEN=128 fixed-group exception directly, so QEMU's shared
+# vector-crypto translator macros need no changes.
 #
 # Every edit is a pure insertion anchored on a nearby upstream line, and every
 # site is guarded by a token that only this patch introduces -- so the script
@@ -205,6 +204,11 @@ cat > "$BLOCKS/tcg-cpu.c" <<'EOF'
 
     /* Zvknhk (vkeccak.vi) -- applied by scripts/apply-qemu-patch.sh */
     if (cpu->cfg.ext_zvknhk) {
+        /* VLMAX is always a legal vsetvl choice with EGSMAX=32. */
+        if (cpu->cfg.rvv_vl_half_avl) {
+            warn_report("Zvknhk requires EGSMAX=32; disabling rvv_vl_half_avl");
+            cpu->cfg.rvv_vl_half_avl = false;
+        }
         if (!cpu->cfg.ext_zve64x) {
             error_setg(errp,
                        "Zvknhk extension requires V or Zve64x extension");

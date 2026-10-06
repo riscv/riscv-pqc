@@ -5,33 +5,133 @@
 // ../../test/system/boot.c, plus checks of the instruction wrapper.
 
 function test_execute(imm5 : bits(5), expected : keccak_state) -> unit = {
+  VLEN = 256;
+  SEW = 64;
+  test_lmul_pow = 3;
+  vl = 0x0000000000000020;
+  vregs = vector_init(zeros());
   foreach (i from 0 to 31) {
-    fixed_eg[i] = if i < 25 then zeros() else 0xA5A5A5A500000000 + i
+    vregs[i] = if i < 25 then zeros() else 0xA5A5A5A500000000 + i
   };
   vstart = zeros();
 
   assert(execute(VKECCAK_VI(imm5, Vregidx(0b00000))) == Retire_Success());
   foreach (i from 0 to 24) {
-    assert(fixed_eg[i] == expected[i], "incorrect state word")
+    assert(vregs[i] == expected[i], "incorrect state word")
   };
   foreach (i from 25 to 31) {
-    assert(fixed_eg[i] == 0xA5A5A5A500000000 + i, "state tail changed")
+    assert(vregs[i] == 0xA5A5A5A500000000 + i, "state tail changed")
   };
   assert(unsigned(vstart) == 0)
 }
 
 function test_illegal(imm5 : bits(5), start : bits(64)) -> unit = {
+  VLEN = 256;
+  SEW = 64;
+  test_lmul_pow = 3;
+  vl = 0x0000000000000020;
+  vregs = vector_init(zeros());
   foreach (i from 0 to 31) {
-    fixed_eg[i] = 0x0123456789ABC000 + i
+    vregs[i] = 0x0123456789ABC000 + i
   };
-  let before = fixed_eg;
+  let before = vregs;
   vstart = start;
 
   assert(execute(VKECCAK_VI(imm5, Vregidx(0b00000))) == Illegal_Instruction());
   foreach (i from 0 to 31) {
-    assert(fixed_eg[i] == before[i], "illegal instruction changed the group")
+    assert(vregs[i] == before[i], "illegal instruction changed the group")
   };
   assert(vstart == start, "illegal instruction changed vstart")
+}
+
+function test_sew() -> unit = {
+  vregs = vector_init(zeros());
+  vregs[0] = 0x0123456789ABCDEF;
+  SEW = 32;
+  test_lmul_pow = 3;
+  vl = 0x0000000000000020;
+  vstart = zeros();
+  VLEN = 256;
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b00000))) == Illegal_Instruction());
+  assert(vregs[0] == 0x0123456789ABCDEF);
+  VLEN = 128;
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b00000))) == Illegal_Instruction());
+  assert(vregs[0] == 0x0123456789ABCDEF)
+}
+
+function test_groups() -> unit = {
+  VLEN = 512;
+  SEW = 64;
+  test_lmul_pow = 3;
+  vl = 0x0000000000000040;
+  vstart = zeros();
+  vregs = vector_init(zeros());
+  var second : keccak_state = vector_init(zeros());
+  second[0] = 0x0000000000000001;
+  vregs[32] = second[0];
+  foreach (i from 25 to 31) {
+    vregs[i] = 0xA5A5A5A500000000 + i;
+    vregs[32 + i] = 0x5A5A5A5A00000000 + i
+  };
+  let first_expected = keccak_p(vector_init(zeros()), 0);
+  let second_expected = keccak_p(second, 0);
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b00000))) == Retire_Success());
+  foreach (i from 0 to 24) {
+    assert(vregs[i] == first_expected[i], "first group incorrect");
+    assert(vregs[32 + i] == second_expected[i], "second group incorrect")
+  };
+  foreach (i from 25 to 31) {
+    assert(vregs[i] == 0xA5A5A5A500000000 + i);
+    assert(vregs[32 + i] == 0x5A5A5A5A00000000 + i)
+  };
+
+  vregs = vector_init(zeros());
+  vregs[32] = second[0];
+  vl = 0x0000000000000040;
+  vstart = 0x0000000000000020;
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b00000))) == Retire_Success());
+  assert(vregs[0] == 0x0000000000000000);
+  assert(vregs[32] == second_expected[0]);
+  assert(unsigned(vstart) == 0);
+
+  vregs = vector_init(zeros());
+  vl = zeros();
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b00000))) == Retire_Success());
+  assert(vregs[0] == 0x0000000000000000)
+}
+
+function test_vlen128() -> unit = {
+  VLEN = 128;
+  SEW = 64;
+  test_lmul_pow = 0;
+  vl = zeros();
+  vstart = zeros();
+  vregs = vector_init(zeros());
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b10000))) == Retire_Success());
+  assert(vregs[32] == 0xF1258F7940E1DDE7);
+  assert(vregs[0] == 0x0000000000000000);
+  vstart = 0x0000000000000020;
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b10000))) == Illegal_Instruction());
+  assert(vstart == 0x0000000000000020)
+}
+
+function test_group_legality() -> unit = {
+  VLEN = 512;
+  SEW = 64;
+  test_lmul_pow = 1;
+  vl = zeros();
+  vstart = zeros();
+  vregs = vector_init(zeros());
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b00000))) == Illegal_Instruction());
+  test_lmul_pow = 2;
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b00001))) == Illegal_Instruction());
+  vl = 0x000000000000001F;
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b00000))) == Illegal_Instruction());
+  VLEN = 4096;
+  test_lmul_pow = -1;
+  vl = 0x0000000000000020;
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b00000))) == Retire_Success());
+  assert(vregs[0] == 0xF1258F7940E1DDE7)
 }
 
 function main() -> unit = {
@@ -104,9 +204,15 @@ function main() -> unit = {
 
   test_illegal(0b00000, 0x0000000000000001);
   test_illegal(0b00001, 0x0000000000000001);
-  test_illegal(0b00000, 0x0000000000000020);
-  test_illegal(0b00001, 0x0000000000000020);
   test_illegal(0b00000, 0xFFFFFFFFFFFFFFFF);
   test_illegal(0b00001, 0xFFFFFFFFFFFFFFFF);
-  print_endline("PASS: nonzero vstart for both round counts, no state changes")
+  print_endline("PASS: unaligned vstart for both round counts, no state changes");
+  test_sew();
+  print_endline("PASS: SEW=32 is illegal at VLEN=128 and VLEN=256");
+  test_groups();
+  print_endline("PASS: two independent element groups, restart and vl=0");
+  test_vlen128();
+  print_endline("PASS: VLEN=128 fixed-group exception");
+  test_group_legality();
+  print_endline("PASS: group size, alignment, vl and fractional LMUL")
 }

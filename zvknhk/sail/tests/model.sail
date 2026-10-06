@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Markku-Juhani O. Saarinen <mjos@iki.fi>
 // SPDX-License-Identifier: BSD-3-Clause
 //
-// Minimal execution environment for the operation listing. It represents
-// one logical fixed group at vd=v0, not a complete vector register file.
+// Standalone vector register file for the operation listing. The first 512
+// 64-bit words cover eight element groups at VLEN=4096, LMUL=8.
 
 newtype vregidx = Vregidx : bits(5)
 
@@ -18,18 +18,29 @@ let RETIRE_SUCCESS : ExecutionResult = Retire_Success()
 val execute : instruction -> ExecutionResult
 scattered function execute
 
+register VLEN : int
+register SEW : int
+register test_lmul_pow : int
+register vl : bits(64)
 register vstart : bits(64)
-register fixed_eg : vector(32, bits(64))
+register vregs : vector(512, bits(64))
 
-function get_fixed_eg(vd : vregidx) -> vector(32, bits(64)) = {
-  assert(vd == Vregidx(0b00000));
-  fixed_eg
+function get_sew() -> int = SEW
+function get_lmul_pow() -> int = test_lmul_pow
+
+function vregidx_bits(vd : vregidx) -> bits(5) = match vd {
+  Vregidx(n) => n
 }
 
-function set_fixed_eg_elem(vd : vregidx, i : range(0, 24),
-                          value : bits(64)) -> unit = {
-  assert(vd == Vregidx(0b00000));
-  fixed_eg[i] = value
+function get_eg_elem(vd : vregidx, i : int) -> bits(64) = {
+  let index = unsigned(vregidx_bits(vd)) * ediv_int(VLEN, 64) + i;
+  if index >= 0 then if index < 512 then vregs[index] else zeros()
+  else zeros()
+}
+
+function set_eg_elem(vd : vregidx, i : int, value : bits(64)) -> unit = {
+  let index = unsigned(vregidx_bits(vd)) * ediv_int(VLEN, 64) + i;
+  if index >= 0 then if index < 512 then vregs[index] = value
 }
 
 function set_vstart(value : bits(16)) -> unit =

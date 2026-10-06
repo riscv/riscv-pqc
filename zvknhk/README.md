@@ -58,11 +58,11 @@ publishes one:
 | Submodule | Upstream | Pinned at |
 |---|---|---|
 | `riscv-isa-sim` | `github.com/riscv-software-src/riscv-isa-sim` | `master` |
-| `qemu-src` | `gitlab.com/qemu-project/qemu` | `v11.1.1` |
+| `qemu-src` | `gitlab.com/qemu-project/qemu` | `v11.1.2` |
 | `demo/openssl` | `github.com/openssl/openssl` | `openssl-4.0.2` |
 
 Spike is the exception: its most recent tag, `v1.1.0`, is from December 2021 and
-sits 2260 commits behind, well before the Zvk vector-crypto support this builds
+predates the Zvk vector-crypto support this builds
 on. Upstream develops on `master` and so does everyone consuming it, so that is
 what is pinned. The exact commits are recorded in the superproject; `git
 submodule status` prints them.
@@ -76,6 +76,16 @@ Keep them pointed at upstream. If one is repointed at a fork and pinned to a
 fork-only commit, `git clone --recurse-submodules` breaks for everyone else: the
 URL in `.gitmodules` still resolves to upstream, where that commit does not
 exist.
+
+## Integration into Vector Cryptography
+
+When integrating this extension into the [ratified Vector Cryptography chapter
+(ISA v20260120)](https://docs.riscv.org/reference/isa/v20260120/unpriv/vector-crypto.html),
+add `vkeccak.vi` to the element-group parameters, `vl`/`vstart`, LMUL, and SEW
+constraint tables. Its `EGW=2048` also changes the chapter's statement that
+application processors need at most `LMUL=2` for the largest element groups:
+`VLEN=256` needs `LMUL=8`, while `VLEN=128` uses the specified 16-register
+exception.
 
 ## Build — the Spike simulator
 
@@ -115,9 +125,8 @@ extension id, the `"zvknhk"` ISA-string name, the `MATCH`/`MASK` encoding and
 its `DECLARE_INSN`, a `riscv_insn_ext_zvknhk` build-system entry, and the
 disassembler entry.
 
-Because the specification defines the state as a single fixed element group that
-is not strip-mined, the implementation needs neither the Zvk element-group loop
-macros nor a new element-group type. `riscv/vector_unit.h`,
+The implementation loops over active 32-word element groups directly and needs
+no new element-group type. `riscv/vector_unit.h`,
 `riscv/zvk_ext_macros.h` and `riscv/zvkned_ext_macros.h` are therefore left
 untouched, which keeps the footprint on upstream small.
 
@@ -137,13 +146,12 @@ treated `imm5` as a literal round count, strip-mined the permutation across
 `vl`, and placed the fixed encoding field at `0b10001` instead of `0b10010`.
 What the patched simulator now implements:
 
-- the state is one fixed element group designated by `vd`, with
-  `EMUL=NREG=ceil(EGW/VLEN)`, independent of `vl` and `LMUL`;
-- `imm5` is a selector — `0` gives 24 rounds, `1` gives 12 rounds using
-  `RC[12..23]`, and every other value is reserved;
-- `SEW != 64`, `vm=0`, a nonzero `vstart`, a reserved `imm5` and a misaligned
-  `vd` all raise an illegal-instruction exception;
-- elements 25..31 and all bits outside the fixed group are preserved.
+- `VLEN >= 256`: ordinary `LMUL` register groups with one permutation per
+  active 32-word element group, selected by `vl` and `vstart`;
+- `VLEN=128`: one fixed group in `v0..v15` or `v16..v31`, independent of `vl`;
+- `imm5=0` selects 24 rounds and `imm5=1` selects 12; other values are reserved;
+- `SEW != 64`, `vm=0`, misaligned groups and invalid `vl`/`vstart` are rejected;
+- the seven state-tail words in each active group are preserved.
 
 Each insertion is anchored on a nearby upstream line and guarded by a token that
 only this patch introduces, so the script is idempotent and re-runs cleanly. It
@@ -182,7 +190,7 @@ qemu-src/build/qemu-riscv64 -cpu rv64,zvknhk=true,vlen=256 test/xtest
 
 **[`qemu/README.md`](qemu/README.md) is the writeup of how the instruction is
 wired in** — the two `.c.inc` files that hold it, the nine insertion sites, why
-none of QEMU's strip-mining scaffolding applies to a fixed element group, and
+the helper handles element groups and the VLEN=128 exception, and
 where each reserved encoding is enforced.
 
 Note that QEMU caps VLEN at `RV_VLEN_MAX`, currently 1024, so the `VLEN >= 2048`
@@ -251,8 +259,11 @@ total.
 
 ```bash
 make test            # builds spike if needed, then builds and runs the tests
-make test-all        # the same, at every VLEN the spec tabulates (128..2048)
+make test-all        # the same, at every VLEN the spec tabulates (128..4096)
 ```
+
+The VLEN sweeps also run 20 separate instruction-edge probes, checking both
+expected illegal-instruction traps and legal no-op, restart, and tail cases.
 
 The same suite runs under QEMU instead of Spike, plus a full-system smoke test
 that boots with no proxy kernel and no firmware:
@@ -285,9 +296,9 @@ whole PQC path, and a negative test that runs the same binary with the same
 status 132 (SIGILL). Without that last one a passing suite would prove nothing:
 falling back to the C code produces identical digests.
 
-The fixed element group spans `NREG = ceil(2048/VLEN)` registers, so both its
-extent and the set of legal `vd` change with `VLEN`. The tests are built for the
-smallest supported `VLEN` and run unmodified at 128, 256, 512, 1024 and 2048;
+At `VLEN=128` one fixed element group spans 16 registers; at larger VLEN,
+`vd` follows ordinary `LMUL` grouping and may hold multiple element groups. The tests are built for the
+smallest supported `VLEN` and run unmodified at 128, 256, 512, 1024, 2048 and 4096;
 see [`test/README.md`](test/README.md) for how.
 
 They need a `riscv64-unknown-linux-gnu` toolchain and `$RISCV` pointing at its

@@ -105,78 +105,35 @@ masked encoding simply fails to match any pattern and raises an illegal
 instruction, with no explicit check anywhere.
 
 
-##  Why none of QEMU's Zvk scaffolding is used
+##  Element-group execution
 
-This is the part that is not mechanical, and it is the same thing that had to
-be unwound in Spike.
+At `VLEN >= 256`, `vd` is an ordinary `LMUL` register group. The translator
+requires `LMUL*VLEN >= 2048` and normal `LMUL` alignment. The helper checks
+that `vl` and `vstart` are multiples of 32, then permutes each 32-word group
+from `vstart/32` through `vl/32 - 1`. It leaves each group's seven state-tail
+words unchanged and resets `vstart` on completion. A `vl` of zero does no work.
 
-QEMU's vector helpers are built around strip-mining: a helper loops from
-`env->vstart / EGS` to `env->vl / EGS`, then fixes up the tail according to
-`vta`. The shared Zvk translator macros — `GEN_V_UNMASKED_TRANS()` and
-`GEN_VI_UNMASKED_TRANS()` — emit `gen_helper_egs_check()`, which raises an
-illegal instruction unless *both* `vl` and `vstart` are multiples of `EGS`, and
-they pass `LMUL`, `VTA` and `VMA` down in the descriptor.
+At `VLEN=128`, `vd` is the special fixed 16-register group (`v0` or `v16`).
+The instruction ignores `vl`; a nonzero `vstart` is illegal. The translator
+passes this mode in bit 8 of the helper's immediate argument, outside the
+architectural five-bit selector.
 
-None of that applies. `zvknhk.adoc` makes `vkeccak.vi` an explicit exception:
-the state is a *single fixed element group* designated by `vd`, with
-`EMUL = NREG = ceil(EGW/VLEN)` independent of `LMUL`, and its operation is
-independent of `vl` — *every* value of `vl` is permitted, including `vl=0`.
-Running it through `egs_check` would reject legal programs. So
-`trans_vkeccak_vi()` spells the sequence out instead: no `egs_check`, no
-descriptor, no `VDATA` fields. It passes a pointer to `vd` and the immediate,
-and that is all the helper needs.
+QEMU stores vector registers contiguously. A 32-word group begins at offset
+`group*32` from the `vd` pointer, so the same lane indexing works at every
+supported `VLEN`. The state tail is part of an active element group and is
+preserved. Architectural tail elements are also left undisturbed, a permitted
+result under tail-agnostic policy.
 
-For the same reason the helper does not use `VSTART_CHECK_EARLY_EXIT()`, the
-macro every other vector helper opens with. That macro treats `vstart >= vl`
-as an already-completed instruction and returns; for an operation that ignores
-`vl` entirely, it would silently skip the permutation whenever `vl` happened to
-be small.
+The translator checks `SEW`, `imm5`, vector state, group size and alignment.
+The decode pattern rejects `vm=0`. The helper checks `vl` and `vstart`, which
+can change at runtime. The translator saves the opcode when those checks may
+raise an illegal-instruction exception.
 
-
-##  Element layout, and why the helper needs no NREG
-
-The one genuinely convenient thing about QEMU here: it stores the vector
-register file as a single flat, contiguous byte array, with register `n`
-occupying `vlenb` bytes at offset `n * vlenb`. `vreg_ofs(s, a->rd)` gives the
-base of the group, and from there element `i` is just `vd[i]`.
-
-That is exactly the layout the specification defines. Byte offset `i * 8` lands
-in register `vd + floor(i*8/vlenb)` at element position `i mod (vlenb/8)` —
-which is the spec's "registers concatenated in increasing register-number order
-using the standard vector element layout". So the helper reads elements 0..24,
-writes elements 0..24, and never needs to know `NREG`, `VLEN` or which register
-boundary it is crossing. `H8()` is the identity on both host endiannesses; it
-is spelled out only for consistency with the surrounding helpers.
-
-Elements 25..31 — the *state tail* — and every bit outside the fixed group are
-preserved by the simplest possible mechanism: they are never written. The state
-tail is not the architectural vector tail, so `vta` correctly plays no part.
-
-
-##  Where each reserved encoding is enforced
-
-Everything that is static in `vtype` or the encoding is rejected at
-*translation* time, where `vkeccak_vi_check()` returning false makes the
-instruction fail to decode and raise an illegal instruction. Only `vstart` is
-dynamic, so only `vstart` is checked in the helper.
-
-| Reserved encoding | Enforced |
-|---|---|
-| `SEW != 64` | translate — `s->sew == MO_64` |
-| reserved `imm5` (not 0 or 1) | translate — `a->rs2 == 0 \|\| a->rs2 == 1` |
-| `vd` not `NREG`-aligned | translate — `(a->rd % nreg) == 0` |
-| group extends past `v31` | translate — `(a->rd + nreg) <= 32` |
-| `vm=0` | decode — the pattern fixes bit 25 |
-| `vstart != 0` | helper — `riscv_raise_exception(..., ILLEGAL_INST, GETPC())` |
-
-`trans_vkeccak_vi()` emits `decode_save_opc()` before the helper only when
-`s->vstart_eq_zero` is false, i.e. only when the helper could actually raise.
-
-Two checks that the other Zvk instructions perform are *deliberately absent*,
-because `zvknhk.adoc` exempts this instruction from them:
-`require_align(a->rd, s->lmul)` — alignment follows `NREG`, not `LMUL` — and
-`MAXSZ(s) >= egw_bytes`, since `EGS > VLMAX` is explicitly not reserved here.
-
+QEMU's optional `rvv_vl_half_avl` policy can select a `vl` that is not a
+multiple of `EGSMAX=32`. CPU validation disables that policy when Zvknhk is
+enabled and warns if the policy was requested, so `vsetvl` chooses `VLMAX`
+when AVL exceeds it. This choice meets
+the element-group constraint, including when `VLMAX<32`.
 
 ##  Running it
 

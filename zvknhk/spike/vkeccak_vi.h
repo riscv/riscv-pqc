@@ -5,21 +5,9 @@
 //
 // Zvknhk: vector-immediate multi-round Keccak-p[1600] permutation.
 //
-// This follows the normative definition in zvknhk.adoc. Points where it
-// deliberately differs from an ordinary vector-crypto instruction:
-//
-//   - The state is ONE fixed element group designated by 'vd', with
-//     EMUL = NREG = ceil(EGW/VLEN), independent of LMUL. It is not
-//     strip-mined, so there is no loop over element groups and no
-//     dependence on 'vl' whatsoever.
-//   - The Vector Crypto constraint LMUL*VLEN >= EGW does NOT apply, so
-//     require_egw_fits() must not be used here. Likewise EGS > VLMAX is
-//     explicitly not reserved for this instruction.
-//   - 'imm5' is a round-count *selector*, not a round count, and it travels
-//     in the vs2 field (bits 24:20) rather than the usual vs1 field.
-//   - Elements 25..31 (the state tail) and every bit outside the fixed group
-//     are left unchanged. The state tail is not the architectural vector
-//     tail, so 'vta' does not apply to it.
+// Each 2048-bit element group contains a 1600-bit state and seven untouched
+// state-tail words. VLEN=128 uses the specification's fixed 16-register group.
+// imm5 is a selector in the vs2 field, not a literal round count.
 
 #define KECCAK_ROL(data, amt)  (((data) << (amt)) | ((data) >> (64 - (amt))))
 
@@ -53,22 +41,28 @@ static constexpr uint64_t KECCAK_RC[24] = {
 };
 
 // Reserved encodings (zvknhk.adoc, "Reserved Encodings").
-require_vector(true);
+// This instruction restarts at element-group boundaries even when Spike's
+// generic ALU vstart option is disabled.
+require_vector_vs;
+require(!P.VU.vill);
+WRITE_VSTATUS;
 require_extension(EXT_ZVKNHK);
 require(P.VU.vsew == 64);             // SEW other than 64 is reserved
 require(insn.v_vm() == 1);            // vm=0 is reserved
 
-// The permutation is not element-restartable: a nonzero vstart is an illegal
-// instruction rather than a resumption point.
-require(P.VU.vstart->read() == 0);
-
-// The fixed group spans NREG = ceil(EGW/VLEN) registers regardless of LMUL.
-// 'vd' must be aligned to an NREG-register boundary and the group must not
-// extend past v31.
-const reg_t vkeccak_nreg = (2048 + P.VU.VLEN - 1) / P.VU.VLEN;
 const reg_t vd_num = insn.rd();
-require_align(vd_num, vkeccak_nreg);
-require(vd_num + vkeccak_nreg <= (reg_t)NVPR);
+const bool fixed_group = P.VU.VLEN == 128;
+const reg_t start = P.VU.vstart->read();
+const reg_t vl = P.VU.vl->read();
+if (fixed_group) {
+  require_align(vd_num, 16);
+  require(start == 0);
+} else {
+  require(P.VU.VLEN * P.VU.vflmul >= 2048);
+  require_align(vd_num, P.VU.vflmul);
+  require(vl % 32 == 0);
+  require(start % 32 == 0);
+}
 
 // imm5 selects the round count: 0 -> 24 rounds (Keccak-f[1600]),
 // 1 -> 12 rounds. Every other value is reserved. Keccak-p[1600, roundCnt]
@@ -78,11 +72,13 @@ require(vkeccak_imm5 == 0 || vkeccak_imm5 == 1);
 const std::size_t roundCnt = (vkeccak_imm5 == 0) ? 24 : 12;
 const std::size_t rc_offset = 24 - roundCnt;
 
-// Read the 25 active state words of the fixed group. elt<uint64_t>(vd, i)
-// resolves element i to element position i mod (VLEN/64) of register
-// vd + floor(i/(VLEN/64)), which is exactly the layout the specification
-// defines, and it does not consult vl or LMUL.
-#define VKECCAK_A(x, y) (P.VU.elt<uint64_t>(vd_num, (x) + 5 * (y)))
+// A group is 32 SEW=64 elements. elt() crosses vector-register boundaries.
+const reg_t first_group = fixed_group ? 0 : start / 32;
+const reg_t group_count = fixed_group ? 1 : vl / 32;
+for (reg_t group = first_group; group < group_count; ++group) {
+const reg_t base = group * 32;
+#define VKECCAK_A(x, y) (P.VU.elt<uint64_t>(vd_num, base + (x) + 5 * (y)))
+#define VKECCAK_WRITE(x, y) (P.VU.elt<uint64_t>(vd_num, base + (x) + 5 * (y), true))
 
 uint64_t A_0_0 = VKECCAK_A(0, 0);
 uint64_t A_0_1 = VKECCAK_A(0, 1);
@@ -254,31 +250,34 @@ for (std::size_t ridx = 0; ridx < roundCnt; ++ridx) {
 
 // Write back only the 25 state elements; 25..31 remain untouched.
 
-VKECCAK_A(0, 0) = A_0_0;
-VKECCAK_A(0, 1) = A_0_1;
-VKECCAK_A(0, 2) = A_0_2;
-VKECCAK_A(0, 3) = A_0_3;
-VKECCAK_A(0, 4) = A_0_4;
-VKECCAK_A(1, 0) = A_1_0;
-VKECCAK_A(1, 1) = A_1_1;
-VKECCAK_A(1, 2) = A_1_2;
-VKECCAK_A(1, 3) = A_1_3;
-VKECCAK_A(1, 4) = A_1_4;
-VKECCAK_A(2, 0) = A_2_0;
-VKECCAK_A(2, 1) = A_2_1;
-VKECCAK_A(2, 2) = A_2_2;
-VKECCAK_A(2, 3) = A_2_3;
-VKECCAK_A(2, 4) = A_2_4;
-VKECCAK_A(3, 0) = A_3_0;
-VKECCAK_A(3, 1) = A_3_1;
-VKECCAK_A(3, 2) = A_3_2;
-VKECCAK_A(3, 3) = A_3_3;
-VKECCAK_A(3, 4) = A_3_4;
-VKECCAK_A(4, 0) = A_4_0;
-VKECCAK_A(4, 1) = A_4_1;
-VKECCAK_A(4, 2) = A_4_2;
-VKECCAK_A(4, 3) = A_4_3;
-VKECCAK_A(4, 4) = A_4_4;
+VKECCAK_WRITE(0, 0) = A_0_0;
+VKECCAK_WRITE(0, 1) = A_0_1;
+VKECCAK_WRITE(0, 2) = A_0_2;
+VKECCAK_WRITE(0, 3) = A_0_3;
+VKECCAK_WRITE(0, 4) = A_0_4;
+VKECCAK_WRITE(1, 0) = A_1_0;
+VKECCAK_WRITE(1, 1) = A_1_1;
+VKECCAK_WRITE(1, 2) = A_1_2;
+VKECCAK_WRITE(1, 3) = A_1_3;
+VKECCAK_WRITE(1, 4) = A_1_4;
+VKECCAK_WRITE(2, 0) = A_2_0;
+VKECCAK_WRITE(2, 1) = A_2_1;
+VKECCAK_WRITE(2, 2) = A_2_2;
+VKECCAK_WRITE(2, 3) = A_2_3;
+VKECCAK_WRITE(2, 4) = A_2_4;
+VKECCAK_WRITE(3, 0) = A_3_0;
+VKECCAK_WRITE(3, 1) = A_3_1;
+VKECCAK_WRITE(3, 2) = A_3_2;
+VKECCAK_WRITE(3, 3) = A_3_3;
+VKECCAK_WRITE(3, 4) = A_3_4;
+VKECCAK_WRITE(4, 0) = A_4_0;
+VKECCAK_WRITE(4, 1) = A_4_1;
+VKECCAK_WRITE(4, 2) = A_4_2;
+VKECCAK_WRITE(4, 3) = A_4_3;
+VKECCAK_WRITE(4, 4) = A_4_4;
 
 #undef VKECCAK_A
+#undef VKECCAK_WRITE
+}
+P.VU.vstart->write(0);
 #undef KECCAK_ROL
