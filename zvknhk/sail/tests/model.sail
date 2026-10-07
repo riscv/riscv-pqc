@@ -19,12 +19,14 @@ val execute : instruction -> ExecutionResult
 scattered function execute
 
 register VLEN : int
+register vill : bool
 register SEW : int
 register test_lmul_pow : int
 register vl : bits(64)
 register vstart : bits(64)
 register vregs : vector(512, bits(64))
 
+function valid_vtype() -> bool = not(vill)
 function get_sew() -> int = SEW
 function get_lmul_pow() -> int = test_lmul_pow
 

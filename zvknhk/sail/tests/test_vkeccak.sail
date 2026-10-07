@@ -59,6 +59,27 @@ function test_sew() -> unit = {
   assert(vregs[0] == 0x0123456789ABCDEF)
 }
 
+// vill=1 raises an illegal-instruction exception at every VLEN. A real
+// vtype with vill=1 has its other bits clear; SEW=64 is kept here so that the
+// valid_vtype() check, rather than the SEW check, is what traps.
+function test_vill() -> unit = {
+  vill = true;
+  SEW = 64;
+  vl = 0x0000000000000020;
+  vstart = zeros();
+  vregs = vector_init(zeros());
+  vregs[0] = 0x0123456789ABCDEF;
+  VLEN = 256;
+  test_lmul_pow = 3;
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b00000))) == Illegal_Instruction());
+  assert(vregs[0] == 0x0123456789ABCDEF);
+  VLEN = 128;
+  test_lmul_pow = 0;
+  assert(execute(VKECCAK_VI(0b00000, Vregidx(0b00000))) == Illegal_Instruction());
+  assert(vregs[0] == 0x0123456789ABCDEF);
+  vill = false
+}
+
 function test_groups() -> unit = {
   VLEN = 512;
   SEW = 64;
@@ -135,6 +156,7 @@ function test_group_legality() -> unit = {
 }
 
 function main() -> unit = {
+  vill = false;
   let zero : keccak_state = vector_init(zeros());
   let out24 = keccak_p(zero, 0);
   assert(out24[ 0] == 0xF1258F7940E1DDE7);
@@ -209,6 +231,8 @@ function main() -> unit = {
   print_endline("PASS: unaligned vstart for both round counts, no state changes");
   test_sew();
   print_endline("PASS: SEW=32 is illegal at VLEN=128 and VLEN=256");
+  test_vill();
+  print_endline("PASS: vill=1 is illegal at VLEN=128 and VLEN=256");
   test_groups();
   print_endline("PASS: two independent element groups, restart and vl=0");
   test_vlen128();

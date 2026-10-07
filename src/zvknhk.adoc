@@ -42,7 +42,10 @@ The instructions defined in this specification share the following constraints:
 - each element is a 64-bit word and the instructions are only defined for
   `SEW=64`;
 - `vl` and `vstart` must be multiples of `EGS=32`, otherwise the behavior is
-  _reserved_; and
+  _reserved_;
+- the instructions depend on `vtype`, at every `VLEN`, so the general rule
+  applies: if `vtype.vill` is set, executing them raises an
+  illegal-instruction exception; and
 - execution timing is data independent.
 
 Except at `VLEN=128`, as specified in <<zvknhk-vlen128>>, `vkeccak.vi` follows
@@ -284,6 +287,11 @@ An illegal-instruction exception is raised if `LMUL*VLEN < EGW`, even when
 `vl=0`, except at `VLEN=128`, where the exception of <<zvknhk-vlen128>>
 applies instead.
 
+`vkeccak.vi` depends on `vtype` at every `VLEN`, including `VLEN=128`, where
+it is independent of `LMUL` but still requires `SEW=64`. It is therefore not
+one of the instructions exempt from the `vill` rule, and an illegal-instruction
+exception is raised if `vtype.vill` is set.
+
 
 Operation::
 
@@ -291,8 +299,16 @@ The operator `x <<< n` rotates the 64-bit word `x` left by `n` bit positions.
 `get_lmul_pow()` supplies the signed power-of-two exponent for `LMUL`.
 `get_eg_elem(vd, i)` and `set_eg_elem(vd, i, value)` access
 element `i` of the `vd` register group using the standard vector element
-layout. The surrounding vector model provides `VLEN`, `get_sew()`,
-`get_lmul_pow()`, `vl`, `vstart`, and the element accessors.
+layout. The surrounding vector model provides `VLEN`, `valid_vtype()`,
+`get_sew()`, `get_lmul_pow()`, `vl`, `vstart`, and the element accessors.
+
+The listing specifies the operation; the encoding, the reserved encodings, and
+the constraints are stated in the text, which takes precedence where the
+listing is silent or disagrees. The listing raises an illegal-instruction
+exception for every reserved case it reaches, which is one permitted behavior
+rather than a requirement; `vm=0` never reaches it, because the encoding fixes
+`vm=1`. Checks common to all vector instructions, such as whether the vector
+unit is enabled, are part of the surrounding model.
 
 .Sail model
 [source,sail]

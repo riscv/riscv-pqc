@@ -13,6 +13,10 @@ $include <generic_equality.sail>
 overload operator ^ = {xor_vec}
 overload ~ = {not_vec}
 
+// The operation uses the RISC-V model's not() alias for not_bool.
+val not : forall ('p : Bool). bool('p) -> bool(not('p))
+function not(b) = not_bool(b)
+
 // All operands of % in the operation are nonnegative, as in sail-riscv.
 overload operator % = {emod_int}
 
