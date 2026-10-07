@@ -39,15 +39,17 @@ directory; `make -C zvknhk/sail clean` removes them.
 - `zvknhk_insts.sail` defines the Keccak permutation and iterates over active
   32-word element groups. `get_lmul_pow()` supplies the signed LMUL exponent.
 - `tests/model.sail` provides a standalone vector register file, `VLEN`,
-  `get_sew()`, `get_lmul_pow()`, `vl`, `vstart`, and element accessors.
+  `valid_vtype()`, `get_sew()`, `get_lmul_pow()`, `vl`, `vstart`, and element
+  accessors.
 - `tests/test_vkeccak.sail` checks both round counts, independent groups,
   state tails, restart at group boundaries, `vl=0`, reserved immediates,
-  and the `VLEN=128` exception.
+  `vill=1`, and the `VLEN=128` exception.
 
 The surrounding RISC-V model must supply vector state, the instruction and
 execute declarations, and `get_eg_elem`/`set_eg_elem` accessors using standard
-vector element layout. The execution listing checks `SEW=64`; decoder checks
-for `vm` and vector availability remain part of integration into `sail-riscv`.
+vector element layout. The execution listing checks `vtype.vill` and `SEW=64`;
+the `vm=1` encoding and vector availability remain part of integration into
+`sail-riscv`.
 
 The Sail source and tests use the BSD-3-Clause license in
 [`../LICENSE`](../LICENSE).

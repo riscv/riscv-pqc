@@ -3,8 +3,8 @@
 //
 // Operation listing for vkeccak.vi, included by src/zvknhk.adoc.
 // Requires the RISC-V Sail prelude, instruction/execute declarations,
-// vregidx, ExecutionResult, get_sew(), get_lmul_pow(), vl, vstart, VLEN,
-// and element accessors.
+// vregidx, ExecutionResult, valid_vtype(), get_sew(), get_lmul_pow(), vl,
+// vstart, VLEN, and element accessors.
 // The standalone definitions in tests/ are test scaffolding only.
 
 // tag::operation[]
@@ -93,6 +93,7 @@ function keccak_p(input : keccak_state,
 union clause instruction = VKECCAK_VI : (bits(5), vregidx)
 
 function clause execute VKECCAK_VI(imm5, vd) = {
+  if not(valid_vtype()) then return Illegal_Instruction();
   if get_sew() != 64 then return Illegal_Instruction();
   let first_round : {0, 12} = match imm5 {
     0b00000 => 0,
