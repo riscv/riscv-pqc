@@ -72,7 +72,7 @@ can hold several element groups, and a single `vkeccak.vi` permutes each
 active element group independently, so that the same code can process, per
 instruction, as many Keccak states as the implementation's vector length
 allows. `VLEN=128`, where no
-register group of `LMUL<=8` can hold an element group, is covered by the
+register group of `LMUL≤8` can hold an element group, is covered by the
 instruction-specific exception in <<zvknhk-vlen128>>.
 
 .Element groups per `VLEN`. The last column assumes `LMUL=8`, `vl=VLMAX` and `vstart=0`.
@@ -127,7 +127,7 @@ Elements of the `vd` register group at or past `vl` are tail elements and
 follow the tail policy (`vta`) as for any vector instruction; elements before
 `vstart` are unchanged. Because `vl` and `vstart` are multiples of `EGS`, the
 body of the vector always consists of whole element groups. As for any vector
-instruction, if `vstart >= vl` (including `vl=0`) no element groups are
+instruction, if `vstart ≥ vl` (including `vl=0`) no element groups are
 processed and no destination elements are updated, not even the architectural
 tail elements. Masking is not supported: `vm=0` is reserved.
 
@@ -141,7 +141,7 @@ group with only some of its state elements updated.
 [[zvknhk-vlen128]]
 ==== Implementations with `VLEN=128`
 
-At `VLEN=128` no register group of `LMUL<=8` can hold a 2048-bit element group:
+At `VLEN=128` no register group of `LMUL≤8` can hold a 2048-bit element group:
 the largest register group, `LMUL=8`, is 1024 bits wide and `VLMAX` is 16
 elements, smaller than `EGS`. So that `Zvknhk` remains implementable at the
 minimum `VLEN` of the application-processor profiles, the following
@@ -149,8 +149,8 @@ instruction-specific exception applies when, and only when, `VLEN=128`:
 
 - `vkeccak.vi` operates on exactly one element group, held in the sixteen
   consecutive registers `vd` through `vd+15` (`EMUL=16`), independent of
-  `LMUL`. This is an exception to the general `EMUL<=8` limit, to the
-  requirement `LMUL*VLEN>=EGW`, and to the rule that `EGS<=VLMAX`; none of
+  `LMUL`. This is an exception to the general `EMUL≤8` limit, to the
+  requirement `LMUL*VLEN≥EGW`, and to the rule that `EGS≤VLMAX`; none of
   these exceptions apply at any other `VLEN` or to any other instruction.
 - `vd` must be aligned to a 16-register boundary, i.e., `v0` or `v16`; other
   values of `vd` are reserved.
@@ -172,14 +172,14 @@ This fixed operand follows the _Scalar Element Group_ layout used by the
 Vector Cryptography extensions: `EMUL=ceil(EGW/VLEN)`, independent of `LMUL`.
 The ratified scalar group operands are sources (`vs2`) and span at most four
 registers; here `vd` is both source and destination, and `EMUL=16` exceeds the
-ordinary `EMUL<=8` limit.
+ordinary `EMUL≤8` limit.
 
 [NOTE]
 ====
 Software needs a separate `VLEN=128` path, selected for example by reading
 `vlenb`. With `e64,m8`, `VLMAX=16` at that VLEN, so loading the 25 live state
 words requires two vector loads. The fixed-group permutation then ignores
-`vl`. At `VLEN>=256`, software can load 25 words, set `vl=32` for one
+`vl`. At `VLEN≥256`, software can load 25 words, set `vl=32` for one
 element group, permute, and restore `vl=25` to store the result.
 ====
 
