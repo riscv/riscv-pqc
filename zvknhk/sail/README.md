@@ -3,7 +3,7 @@
 # Zvknhk Sail operation and tests
 
 [`zvknhk_insts.sail`](zvknhk_insts.sail) is the executable Sail operation
-listing used by [the specification](../../src/zvknhk.adoc). The AsciiDoc
+listing used by [the specification](../../modules/ROOT/pages/zvknhk.adoc). The AsciiDoc
 chapter includes its `operation` tag directly, so the document and tests use
 the same source. Building the document does not require the Sail compiler.
 

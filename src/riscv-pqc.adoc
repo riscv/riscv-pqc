@@ -1,14 +1,23 @@
 = RISC-V Post-Quantum Cryptography Extension
 Authors: Markku-Juhani O. Saarinen
+include::../docs-resources/global-config.adoc[]
+ifndef::revnumber[:revnumber: v0.0]
+ifndef::revdate[:revdate: 1/2023]
+// Ratification-layer attribute defaults, and the fallbacks below only apply
+// when the Makefile doesn't pass -a overrides (e.g. a manual asciidoctor
+// invocation). See scripts/release-info.sh.
+ifndef::doc-mode[]
+ifndef::phase[:phase: draft-and-development]
+ifndef::phase_display[:phase_display: {phase}]
+ifndef::phase_notice[:phase_notice: Assume everything is subject to change. At this stage, ideas, structures, and content are still evolving. Feedback and iteration are encouraged as nothing is final, and adjustments may be frequent.]
+ifndef::revremark[:revremark: This document is under development. Expect potential changes. Visit http://riscv.org/spec-state for further details.]
+ifndef::milestone_id[:milestone_id: {phase}]
+endif::doc-mode[]
+ifndef::spec_short[:spec_short: riscv-pqc]
 :docgroup: RISC-V Task Group
 :description: RISC-V Post-Quantum Cryptography Extension
 :company: RISC-V International
-:revdate: 2026-10-07
-:revnumber: v0.2.1
-:revremark: This document is under development. Expect potential changes. Visit https://riscv.org/specifications/development/ for further details.
 :revinfo:
-:url-riscv: https://riscv.org
-:doctype: book
 :preface-title: Preamble
 :colophon:
 :appendix-caption: Appendix
@@ -19,17 +28,17 @@ Authors: Markku-Juhani O. Saarinen
 :experimental:
 :reproducible:
 //:WaveDromEditorApp: app/wavedrom-editor.app
-:imagesoutdir: ../build/images
-:srcdir: src
-:bibtex-file: {srcdir}/riscv-pqc.bib
+:imagesoutdir: images
+:bibtex-file: modules/ROOT/resources/riscv-pqc.bib
 :bibtex-order: alphabetical
 :bibtex-style: ieee
 :icons: font
 :lang: en
 :listing-caption: Listing
 :sectnums:
-:toc: left
+:toc: macro
 :toclevels: 4
+:toc-title: Table of Contents
 :source-highlighter: pygments
 ifdef::backend-pdf[]
 :source-highlighter: coderay
@@ -40,13 +49,27 @@ endif::[]
 :footnote:
 :xrefstyle: short
 
-[WARNING]
-.This document is in the link:https://riscv.org/specifications/development/[Development state]
-====
-Expect potential changes. This draft specification is likely to evolve before
-it is accepted as a standard. Implementations based on this draft
-may not conform to the future standard.
-====
+// "Document State" preface is the phase Note rendered as page 2 of the PDF
+// (TOC is placed after it via the toc::[] macro below). See ARC_SUBMISSION.md §3.3.
+ifndef::doc-mode[]
+[preface]
+== Document State
+*Note:* {phase_notice}
+endif::doc-mode[]
+
+toc::[]
+
+[preface]
+== List of figures
+list-of::image[hide_empty_section=true, enhanced_rendering=true]
+
+[preface]
+== List of tables
+list-of::table[hide_empty_section=true, enhanced_rendering=true]
+
+[preface]
+== List of listings
+list-of::listing[hide_empty_section=true, enhanced_rendering=true]
 
 [preface]
 == Copyright and license information
@@ -57,13 +80,14 @@ https://creativecommons.org/licenses/by/4.0/.
 
 Copyright 2026 by RISC-V International.
 
+// Chapter sources live under modules/ROOT/pages/ so they double as standalone
+// Antora pages (each with a level-0 title). leveloffset=+1 demotes those titles
+// by one level here, reproducing the PDF section structure. This file is the
+// PDF assembler; the pages are the single content source. See ANTORA.md.
 [preface]
-include::contributors.adoc[]
+include::../modules/ROOT/pages/contributors.adoc[leveloffset=+1]
 
-include::intro.adoc[]
+include::../modules/ROOT/pages/intro.adoc[leveloffset=+1]
+include::../modules/ROOT/pages/zvknhk.adoc[leveloffset=+1]
 
-include::zvknhk.adoc[]
-
-// The index must precede the bibliography
-//include::index.adoc[]
-include::bibliography.adoc[]
+include::../modules/ROOT/pages/bibliography.adoc[leveloffset=+1]

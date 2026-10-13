@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Markku-Juhani O. Saarinen <mjos@iki.fi>
 // SPDX-License-Identifier: BSD-3-Clause
 //
-// Operation listing for vkeccak.vi, included by src/zvknhk.adoc.
+// Operation listing for vkeccak.vi, included by modules/ROOT/pages/zvknhk.adoc.
 // Requires the RISC-V Sail prelude, instruction/execute declarations,
 // vregidx, ExecutionResult, valid_vtype(), get_sew(), get_lmul_pow(), vl,
 // vstart, VLEN, and element accessors.

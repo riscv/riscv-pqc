@@ -3,9 +3,10 @@
 #
 # Makefile for the Zvknhk (Vector Keccak) reference implementations and tests.
 #
-# The specification itself lives in ../src/zvknhk.adoc and is built by the
-# Makefile at the repository root. Its operation listing is included directly
-# from sail/zvknhk_insts.sail; the targets here build implementations and tests.
+# The specification itself lives in ../modules/ROOT/pages/zvknhk.adoc and is
+# built by the Makefile at the repository root. Its operation listing is
+# included directly from sail/zvknhk_insts.sail; the targets here build
+# implementations and tests.
 #
 # Targets:
 #   make test-sail    — Compile and run the standalone Sail operation tests

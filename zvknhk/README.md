@@ -4,7 +4,7 @@ Reference implementations and tests for **`Zvknhk`**, the RISC-V Vector Keccak
 extension, and its instruction `vkeccak.vi` — a vector-immediate multi-round
 Keccak-_p_[1600] permutation.
 
-The normative definition is [`../src/zvknhk.adoc`](../src/zvknhk.adoc), a
+The normative definition is [`../modules/ROOT/pages/zvknhk.adoc`](../modules/ROOT/pages/zvknhk.adoc), a
 chapter of the PQC specification built by the Makefile at the repository root.
 Its operation listing is included directly from
 [`sail/zvknhk_insts.sail`](sail/zvknhk_insts.sail). The other implementations
@@ -140,7 +140,7 @@ make unpatch-spike && make spike
 
 ### Conformance to the specification
 
-The implementation follows `../src/zvknhk.adoc` rather than the original fork,
+The implementation follows `../modules/ROOT/pages/zvknhk.adoc` rather than the original fork,
 which predates the current spec text and differs from it in several ways: it
 treated `imm5` as a literal round count, strip-mined the permutation across
 `vl`, and placed the fixed encoding field at `0b10001` instead of `0b10010`.
