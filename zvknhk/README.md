@@ -4,7 +4,7 @@ Reference implementations and tests for **`Zvknhk`**, the RISC-V Vector Keccak
 extension, and its instruction `vkeccak.vi` — a vector-immediate multi-round
 Keccak-_p_[1600] permutation.
 
-The normative definition is [`../src/zvknhk.adoc`](../src/zvknhk.adoc), a
+The normative definition is [`../modules/ROOT/pages/zvknhk.adoc`](../modules/ROOT/pages/zvknhk.adoc), a
 chapter of the PQC specification built by the Makefile at the repository root.
 Its operation listing is included directly from
 [`sail/zvknhk_insts.sail`](sail/zvknhk_insts.sail). The other implementations
@@ -29,7 +29,7 @@ sources live here. The round body in
 ## License
 
 This directory is BSD 3-Clause — see [`LICENSE`](LICENSE) — not CC-BY-4.0 like
-the specification text in `../src/`. Every file carries an
+the specification text in `../modules/` and `../src/`. Every file carries an
 `SPDX-License-Identifier` tag.
 
 BSD-3-Clause is the deliberate choice: this code is written to be copied into
@@ -49,8 +49,14 @@ remaining work for integration into the full RISC-V Sail model.
 ## Getting the submodules
 
 ```bash
-git submodule update --init --recursive zvknhk/riscv-isa-sim zvknhk/qemu-src zvknhk/demo/openssl
+git submodule update --init --checkout --recursive zvknhk/riscv-isa-sim zvknhk/qemu-src zvknhk/demo/openssl
 ```
+
+`--checkout` is required: `.gitmodules` sets `update = none` for these three,
+so that cloning the repository and building the specification do not fetch
+them, and a plain `git submodule update` skips them. The Makefile targets that
+need a submodule run this command themselves. The same applies after a pull
+that moves a pin.
 
 They track pristine upstream, pinned to a stable release wherever upstream
 publishes one:
@@ -140,7 +146,7 @@ make unpatch-spike && make spike
 
 ### Conformance to the specification
 
-The implementation follows `../src/zvknhk.adoc` rather than the original fork,
+The implementation follows `../modules/ROOT/pages/zvknhk.adoc` rather than the original fork,
 which predates the current spec text and differs from it in several ways: it
 treated `imm5` as a literal round count, strip-mined the permutation across
 `vl`, and placed the fixed encoding field at `0b10001` instead of `0b10010`.

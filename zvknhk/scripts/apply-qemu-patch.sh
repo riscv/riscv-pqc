@@ -53,7 +53,7 @@ done
 if [ ! -f "$QEMU_DIR/target/riscv/insn32.decode" ]; then
     echo "error: expected QEMU source $QEMU_DIR/target/riscv/insn32.decode" >&2
     echo "       not found. Either the submodule is not initialized (run" >&2
-    echo "       'git submodule update --init zvknhk/qemu-src'), or the upstream" >&2
+    echo "       'git submodule update --init --checkout zvknhk/qemu-src'), or the upstream" >&2
     echo "       source layout changed -- update the paths in $0." >&2
     exit 1
 fi

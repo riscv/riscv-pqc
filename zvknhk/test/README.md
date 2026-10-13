@@ -1,7 +1,7 @@
 #   Zvknhk instruction tests
 
 Tests for `vkeccak.vi`, the single-instruction Keccak-_p_[1600] permutation
-defined by the [`Zvknhk`](../../src/zvknhk.adoc) extension. They run known-answer
+defined by the [`Zvknhk`](../../modules/ROOT/pages/zvknhk.adoc) extension. They run known-answer
 vectors against the instruction as implemented by
 [`spike/vkeccak_vi.h`](../spike/vkeccak_vi.h), executing on the Spike built by
 this repository. Both round counts the instruction offers are covered: 24

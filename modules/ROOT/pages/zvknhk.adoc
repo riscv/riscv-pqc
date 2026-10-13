@@ -1,6 +1,6 @@
 
 [[zvknhk,zvknhk]]
-== "Zvknhk" Extension for Vector Keccak
+= "Zvknhk" Extension for Vector Keccak
 
 This chapter describes the `Zvknhk` Vector Cryptography extension, which adds
 an instruction for the Keccak permutation used by NIST SHA-3 and numerous
@@ -14,7 +14,7 @@ https://docs.riscv.org/reference/isa/v20260120/unpriv/vector-crypto.html[Vector 
 
 
 [[zvknhk-overview]]
-=== Extension Overview
+== Extension Overview
 
 This section introduces `Zvknhk`.
 
@@ -52,7 +52,7 @@ Except at `VLEN=128`, as specified in <<zvknhk-vlen128>>, `vkeccak.vi` follows
 the ordinary element-group rules described next.
 
 [[zvknhk-element-groups]]
-==== Element Groups
+=== Element Groups
 
 `vkeccak.vi` operates on a _vector of element groups_, following the element
 group rules of the RISC-V Vector Cryptography extensions. Each element group is
@@ -142,7 +142,7 @@ resumes with element group `vstart/EGS`, and successful completion resets
 group with only some of its state elements updated.
 
 [[zvknhk-vlen128]]
-==== Implementations with `VLEN=128`
+=== Implementations with `VLEN=128`
 
 At `VLEN=128` no register group of `LMUL≤8` can hold a 2048-bit element group:
 the largest register group, `LMUL=8`, is 1024 bits wide and `VLMAX` is 16
@@ -202,7 +202,7 @@ element group, permute, and restore `vl=25` to store the result.
 
 
 [[insns-vkeccak-vi, Vector Multi-Round Keccak]]
-=== vkeccak.vi
+== vkeccak.vi
 
 Synopsis::
 Vector-Immediate Multi-Round Keccak
@@ -313,16 +313,16 @@ unit is enabled, are part of the surrounding model.
 .Sail model
 [source,sail]
 --
-include::../zvknhk/sail/zvknhk_insts.sail[tag=operation]
+include::../examples/zvknhk_insts.sail[tag=operation]
 --
 
 Included in::
 <<zvknhk>>
 
 [[Encodings]]
-=== Encodings
+== Encodings
 [[crypto_vector_instructions_zvknhk]]
-==== Additional Vector Cryptographic Instructions
+=== Additional Vector Cryptographic Instructions
 
 OP-VE (0x77)
 Vector Crypto instructions, including `Zvknhk`, except `Zvbb` and `Zvbc`.

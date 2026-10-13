@@ -47,7 +47,7 @@ fi
 if [ ! -f "$SIM_DIR/riscv/riscv.mk.in" ]; then
     echo "error: expected Spike source $SIM_DIR/riscv/riscv.mk.in not found." >&2
     echo "       Either the submodule is not initialized (run" >&2
-    echo "       'git submodule update --init zvknhk/riscv-isa-sim'), or the upstream" >&2
+    echo "       'git submodule update --init --checkout zvknhk/riscv-isa-sim'), or the upstream" >&2
     echo "       source layout changed — update the paths in $0." >&2
     exit 1
 fi

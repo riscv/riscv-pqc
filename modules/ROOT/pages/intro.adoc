@@ -1,5 +1,5 @@
 [[intro]]
-== Introduction
+= Introduction
 
 The term _Post-Quantum Cryptography_ (PQC) refers to cryptographic algorithms that have been designed to be secure against attacks with quantum computers. It has been known since the mid-1990s cite:[Shor:1994] that asymptotically efficient quantum algorithms exist against integer factorization and discrete logarithm problems. These problems are central to the security of first-generation public-key cryptography algorithms that were invented in the 1970s and 1980s and came into widespread use as secure Internet protocols and applications were first developed in the 1990s and 2000s.
 

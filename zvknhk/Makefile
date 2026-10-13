@@ -3,9 +3,10 @@
 #
 # Makefile for the Zvknhk (Vector Keccak) reference implementations and tests.
 #
-# The specification itself lives in ../src/zvknhk.adoc and is built by the
-# Makefile at the repository root. Its operation listing is included directly
-# from sail/zvknhk_insts.sail; the targets here build implementations and tests.
+# The specification itself lives in ../modules/ROOT/pages/zvknhk.adoc and is
+# built by the Makefile at the repository root. Its operation listing is
+# included directly from sail/zvknhk_insts.sail; the targets here build
+# implementations and tests.
 #
 # Targets:
 #   make test-sail    — Compile and run the standalone Sail operation tests
@@ -85,7 +86,7 @@ clean:
 sim-submodule-init:
 	@if [ ! -f $(SIM_DIR)/riscv/riscv.mk.in ]; then \
 		echo "Initializing the $(SIM_DIR) submodule..."; \
-		$(GIT) submodule update --init --recursive $(SIM_DIR); \
+		$(GIT) submodule update --init --checkout --recursive $(SIM_DIR); \
 	fi
 
 patch-spike: sim-submodule-init
@@ -137,7 +138,7 @@ test-clean:
 qemu-submodule-init:
 	@if [ ! -f $(QEMU_DIR)/target/riscv/insn32.decode ]; then \
 		echo "Initializing the $(QEMU_DIR) submodule..."; \
-		$(GIT) submodule update --init --recursive $(QEMU_DIR); \
+		$(GIT) submodule update --init --checkout --recursive $(QEMU_DIR); \
 	fi
 
 patch-qemu: qemu-submodule-init
@@ -196,7 +197,7 @@ qemu-clean:
 openssl-submodule-init:
 	@if [ ! -f $(SSL_DIR)/crypto/sha/keccak1600.c ]; then \
 		echo "Initializing the $(SSL_DIR) submodule..."; \
-		$(GIT) submodule update --init --recursive $(SSL_DIR); \
+		$(GIT) submodule update --init --checkout --recursive $(SSL_DIR); \
 	fi
 
 patch-openssl: openssl-submodule-init
