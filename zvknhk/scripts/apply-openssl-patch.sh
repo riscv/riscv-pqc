@@ -56,7 +56,7 @@ fi
 if [ ! -f "$KECCAK_C" ]; then
     echo "error: expected OpenSSL source $KECCAK_C" >&2
     echo "       not found. Either the submodule is not initialized (run" >&2
-    echo "       'git submodule update --init zvknhk/demo/openssl'), or the upstream" >&2
+    echo "       'git submodule update --init --checkout zvknhk/demo/openssl'), or the upstream" >&2
     echo "       source layout changed -- update the paths in $0." >&2
     exit 1
 fi

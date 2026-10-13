@@ -86,7 +86,7 @@ clean:
 sim-submodule-init:
 	@if [ ! -f $(SIM_DIR)/riscv/riscv.mk.in ]; then \
 		echo "Initializing the $(SIM_DIR) submodule..."; \
-		$(GIT) submodule update --init --recursive $(SIM_DIR); \
+		$(GIT) submodule update --init --checkout --recursive $(SIM_DIR); \
 	fi
 
 patch-spike: sim-submodule-init
@@ -138,7 +138,7 @@ test-clean:
 qemu-submodule-init:
 	@if [ ! -f $(QEMU_DIR)/target/riscv/insn32.decode ]; then \
 		echo "Initializing the $(QEMU_DIR) submodule..."; \
-		$(GIT) submodule update --init --recursive $(QEMU_DIR); \
+		$(GIT) submodule update --init --checkout --recursive $(QEMU_DIR); \
 	fi
 
 patch-qemu: qemu-submodule-init
@@ -197,7 +197,7 @@ qemu-clean:
 openssl-submodule-init:
 	@if [ ! -f $(SSL_DIR)/crypto/sha/keccak1600.c ]; then \
 		echo "Initializing the $(SSL_DIR) submodule..."; \
-		$(GIT) submodule update --init --recursive $(SSL_DIR); \
+		$(GIT) submodule update --init --checkout --recursive $(SSL_DIR); \
 	fi
 
 patch-openssl: openssl-submodule-init

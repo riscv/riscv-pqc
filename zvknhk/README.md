@@ -29,7 +29,7 @@ sources live here. The round body in
 ## License
 
 This directory is BSD 3-Clause — see [`LICENSE`](LICENSE) — not CC-BY-4.0 like
-the specification text in `../src/`. Every file carries an
+the specification text in `../modules/` and `../src/`. Every file carries an
 `SPDX-License-Identifier` tag.
 
 BSD-3-Clause is the deliberate choice: this code is written to be copied into
@@ -49,8 +49,14 @@ remaining work for integration into the full RISC-V Sail model.
 ## Getting the submodules
 
 ```bash
-git submodule update --init --recursive zvknhk/riscv-isa-sim zvknhk/qemu-src zvknhk/demo/openssl
+git submodule update --init --checkout --recursive zvknhk/riscv-isa-sim zvknhk/qemu-src zvknhk/demo/openssl
 ```
+
+`--checkout` is required: `.gitmodules` sets `update = none` for these three,
+so that cloning the repository and building the specification do not fetch
+them, and a plain `git submodule update` skips them. The Makefile targets that
+need a submodule run this command themselves. The same applies after a pull
+that moves a pin.
 
 They track pristine upstream, pinned to a stable release wherever upstream
 publishes one:
